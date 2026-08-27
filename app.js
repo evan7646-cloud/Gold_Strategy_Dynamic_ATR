@@ -445,20 +445,18 @@ function renderTradesTable() { // 渲染歷史交易記錄表格函數
         const pnlSign = t.pnl_points >= 0 ? '+' : ''; // 正負號
         const maeVal = t.mae_points ? `${t.mae_points.toFixed(2)} pts` : '--'; // MAE 顯示
 
-        tr.innerHTML = ` <!-- 填入單列 HTML --> // 資料渲染與邏輯
-            <td style="font-weight: bold; color: #ffd54f;">#${t.trade_id}</td> // 資料渲染與邏輯
-            <td>${typeBadge}</td> // 資料渲染與邏輯
-            <td>${pyrBadge}</td> // 資料渲染與邏輯
-            <td>${unitsBadge}</td> // 資料渲染與邏輯
-            <td>${t.entry_date}</td> // 資料渲染與邏輯
-            <td>$${t.entry_price.toFixed(2)}</td> // 資料渲染與邏輯
-            <td>${t.exit_date}</td> // 資料渲染與邏輯
-            <td>$${t.exit_price.toFixed(2)}</td> // 資料渲染與邏輯
-            <td class="text-mae">${maeVal}</td> // 資料渲染與邏輯
-            <td>${t.holding_hours} 小時</td> // 資料渲染與邏輯
-            <td>${t.exit_reason || 'Signal Exit'}</td> // 資料渲染與邏輯
-            <td class="${pnlClass}">${pnlSign}${t.pnl_points.toFixed(2)} pts</td> // 資料渲染與邏輯
-        `; // 填入結束
+        tr.innerHTML = '<td style="font-weight: bold; color: #ffd54f;">#' + t.trade_id + '</td>' + // 交易序號 ID
+            '<td>' + typeBadge + '</td>' + // 方向標籤 (Long/Short)
+            '<td>' + pyrBadge + '</td>' + // 部位屬性 (Main/Pyramid)
+            '<td>' + unitsBadge + '</td>' + // 51Bitquant 手數倍率
+            '<td>' + t.entry_date + '</td>' + // 進場時間
+            '<td>$' + t.entry_price.toFixed(2) + '</td>' + // 進場價格
+            '<td>' + t.exit_date + '</td>' + // 出場時間
+            '<td>$' + t.exit_price.toFixed(2) + '</td>' + // 出場價格
+            '<td class="text-mae">' + maeVal + '</td>' + // 單筆最大逆向浮虧 MAE
+            '<td>' + t.holding_hours + ' 小時</td>' + // 持倉時數
+            '<td>' + (t.exit_reason || 'Signal Exit') + '</td>' + // 出場原因
+            '<td class="' + pnlClass + '">' + pnlSign + t.pnl_points.toFixed(2) + ' pts</td>'; // 淨損益點數
 
         tr.addEventListener('click', () => { // 綁定點擊資料列事件
             activeTradeId = t.trade_id; // 記錄選取 ID
