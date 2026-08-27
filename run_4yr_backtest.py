@@ -237,6 +237,12 @@ def run_4yr_adaptive_backtest():  # 執行 4 年全數據回測
     plt.savefig('backtest_equity_curve_4yr_adaptive.png', dpi=300)  # 儲存圖檔
     plt.close()  # 關閉釋放
 
+    # 4年當前回撤計算
+    peak_4yr = float(cum_pnl.max()) if len(cum_pnl) > 0 else 0.0  # 4年歷史權益峰值
+    cur_pnl_4yr = float(cum_pnl.iloc[-1]) if len(cum_pnl) > 0 else 0.0  # 4年當前累積損益
+    cur_dd_4yr = round(peak_4yr - cur_pnl_4yr, 2)  # 4年當前回撤點數
+    cur_dd_pct_4yr = round(cur_dd_4yr / peak_4yr * 100, 2) if peak_4yr > 0 else 0.0  # 4年當前回撤比例
+
     # 更新 strategy_results.json 加入 4 年全歷史指標
     if os.path.exists('strategy_results.json'):  # 檢查 JSON
         with open('strategy_results.json', 'r', encoding='utf-8') as f:  # 讀取
@@ -248,6 +254,8 @@ def run_4yr_adaptive_backtest():  # 執行 4 年全數據回測
             'win_rate': win_rate,  # 勝率
             'profit_factor': pf,  # 盈虧比
             'max_drawdown': mdd,  # 最大回撤
+            'current_drawdown': cur_dd_4yr,  # 當前回撤點數
+            'current_drawdown_pct': cur_dd_pct_4yr,  # 當前回撤比例
             'floating_drawdown_points': floating_mdd_4yr,  # 浮動回撤
             'max_instant_float_loss': max_instant_float_loss_4yr,  # 最大浮虧
             'calmar_ratio': calmar,  # 卡瑪比率

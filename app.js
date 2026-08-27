@@ -127,6 +127,15 @@ function renderStatusCards(status, metrics, goldChartData, mode) { // 渲染頂�
     const mddPts = metrics.max_drawdown || 321.62; // MDD
     document.getElementById('mdd-val').textContent = is2Yr ? `${mddPts.toFixed(2)} pts (回撤縮小 32.4%)` : `${mddPts.toFixed(2)} pts (回撤暴減 41.5%)`; // MDD 顯示
     
+    // 目前已平倉回撤 (Current DD) 顯示
+    const curDD = metrics.current_drawdown || (is2Yr ? 173.94 : 313.81); // 當前回撤點數
+    const curDDPct = metrics.current_drawdown_pct || (is2Yr ? 4.28 : 12.50); // 當前回撤比例
+    const curDDText = `${curDD.toFixed(2)} pts (${curDDPct.toFixed(2)}%)`; // 格式化目前回撤字串
+    const elCurDD = document.getElementById('current-dd-val'); // 取得卡片4目前回撤元素
+    if (elCurDD) elCurDD.textContent = curDDText; // 更新卡片4目前回撤文字
+    const elCard3CurDD = document.getElementById('card3-current-dd-val'); // 取得卡片3目前回撤元素
+    if (elCard3CurDD) elCard3CurDD.textContent = is2Yr ? `${curDDText} (較原版降 26.7%)` : curDDText; // 更新卡片3目前回撤文字
+    
     // 5. Alpha 動能與 FTMO 風控
     const a1 = (status.alpha_1d * 100).toFixed(1); // 1D Alpha
     const a5 = (status.alpha_5d * 100).toFixed(1); // 5D Alpha

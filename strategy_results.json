@@ -46703,6 +46703,8 @@
     "win_rate": 33.12,
     "profit_factor": 1.26,
     "max_drawdown": 530.95,
+    "current_drawdown": 313.81,
+    "current_drawdown_pct": 12.5,
     "floating_drawdown_points": 636.51,
     "max_instant_float_loss": -157.6,
     "calmar_ratio": 1.15,
