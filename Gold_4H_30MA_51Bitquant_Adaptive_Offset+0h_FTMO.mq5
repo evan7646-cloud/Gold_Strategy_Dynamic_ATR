@@ -1,0 +1,910 @@
+//+------------------------------------------------------------------+ // 頭部註釋
+//|              Gold_4H_30MA_51Bitquant_Adaptive_Offset+0h_FTMO.mq5 | // 檔名與模組註釋
+//|                               黃金 4H 30MA 51Bitquant 波動度自適應調倉 FTMO 版 EA (+0h Offset) | // 版權與模組說明
+//|                       Copyright 2026, Gold Strategy Watch        | // 版權聲明註釋
+//+------------------------------------------------------------------+ // 分隔線註釋
+#property copyright "Copyright 2026, Gold Strategy Watch" // 程式版權資訊
+#property link      "https://github.com/evan7646/Gold_Strategy_Watch" // 專案連結
+#property version   "1.00" // 程式版本號
+#property strict    // 嚴格模式編譯
+
+#include <Trade\Trade.mqh> // 引用 MT5 官方交易庫
+
+//--- 策略參數設定 (與最終版 Gold_4H_30MA_add2.0>3%_Strategy_Offset+0h.mq5 100% 同步)
+input ulong    InpMagicMain              = 44440001;         // 主部位 Magic Number 識別碼 (同步最終版 44440001)
+input ulong    InpMagicPyramid           = 44440002;         // 加碼部位 Magic Number 識別碼 (同步最終版 44440002)
+input double   InpLotSize                = 0.10;             // 初始交易手數 (Standard Lots)
+input bool     InpEnablePyramid          = true;             // 是否啟用加碼機制 (True/False)
+input double   InpPyramidBoostMultiplier = 2.0;              // Alpha 強烈時加碼手數基準倍率 (預設 2.0 倍)
+input double   InpAlphaBoostThresh       = 0.03;             // Alpha10 觸發加碼門檻 (預設 3.0% = 0.03)
+input double   InpBaselineATR            = 16.0;             // 51Bitquant 基準 ATR 點數 (波動度基準 16.0 點)
+input double   InpMaxPyrMult             = 2.5;              // 51Bitquant 自適應加碼倍率上限 (預設 2.5x)
+input double   InpMinPyrMult             = 0.5;              // 51Bitquant 自適應加碼倍率下限 (預設 0.5x)
+input double   InpAlphaTrendFloor        = 1.0;              // 超強單邊趨勢加碼手數保底倍率 (預設 1.0x)
+input string   InpDXYSymbol              = "USDX";           // 美元指數圖表代號 (同步最終版預設 USDX)
+
+//--- 指標週期參數宣告 (修復未定義編譯錯誤)
+input int      InpMA4H_Period            = 30;               // 4H 均線 (SMA) 週期 (預設 30MA)
+input int      InpATR4H_Period           = 14;               // 4H ATR 週期 (預設 14ATR)
+input int      InpMA50_Period            = 50;               // 日線 50MA 週期 (大趨勢過濾)
+input int      InpMA20_Period            = 20;               // 日線 20MA 週期 (加倉過濾)
+input int      InpMA60_Period            = 60;               // 日線 60MA 週期 (加倉過濾)
+
+//--- FTMO 風控專屬參數
+input double   InpInitialBalance         = 100000.0;         // FTMO 帳戶初始資金 (0.0 表示不開啟總虧損熔斷)
+input double   InpMaxDailyLossPct        = 4.5;              // 每日最大虧損限制比例 (%) (例如 4.5%)
+input double   InpMaxTotalLossPct        = 9.0;              // 帳戶總最大虧損限制比例 (%) (例如 9.0%)
+input bool     InpCloseAllAccountPos     = true;             // 觸發熔斷時是否強制平倉帳戶內「所有」頭寸 (true = 包含手動部位)
+input bool     InpEnableAlerts           = true;             // 是否開啟 FTMO 風控與交易通知
+
+//--- 全域變數宣告
+CTrade   g_trade;                 // 交易執行物件
+double   g_MainStopPrice    = 0.0; // 主部位移動停損價
+double   g_PyramidStopPrice = 0.0; // 加碼部位移動停損價
+datetime g_LastBar4H        = 0;   // 上次執行的 4H K 線時間
+datetime g_LastBarDaily     = 0;   // 上次執行的 Daily K 線時間
+bool     g_DailyReady       = false; // 日線過濾器是否就緒
+
+//--- FTMO 風控全域變數
+double   g_SOD_Baseline     = 0.0;   // 今日 Start of Day 權益基準點
+datetime g_LastServerDate   = 0;     // 當前伺服器日期
+bool     g_DailyHalted      = false; // 今日是否觸發熔斷停止交易
+
+//--- 日線與趨勢狀態變數
+bool     g_RegimeBull       = false; // 大趨勢是否為多頭 (Close > 50SMA)
+bool     g_PyramidLongOK    = false; // 日線是否允許加多
+bool     g_PyramidShortOK   = false; // 日線是否允許加空
+
+//--- 指標句柄全域變數
+int      g_hMA50D           = INVALID_HANDLE; // 日線 50SMA 句柄
+int      g_hMA20D           = INVALID_HANDLE; // 日線 20SMA 句柄
+int      g_hMA60D           = INVALID_HANDLE; // 日線 60SMA 句柄
+int      g_hMA4H            = INVALID_HANDLE; // 4H 30MA 句柄
+int      g_hATR4H           = INVALID_HANDLE; // 4H 14ATR 句柄
+
+//--- 全域變數持久化 Key
+string   g_gvKeyMainStop;      // 主部位停損 Key
+string   g_gvKeyPyramidStop;   // 加倉部位停損 Key
+string   g_gvKeyLastBar4H;     // 4H 時間 Key
+string   g_gvKeySODBaseline;   // SOD 基準價 Key
+string   g_gvKeyLastServerDate;// 伺服器日期 Key
+string   g_gvKeyDailyHalted;   // 今日熔斷 Key
+
+//+------------------------------------------------------------------+
+//| 取得合規成交模式 (GetValidFillingMode)                            |
+//+------------------------------------------------------------------+
+ENUM_ORDER_TYPE_FILLING GetValidFillingMode() // 取得下單填單模式
+{ // 函數開頭
+   uint filling = (uint)SymbolInfoInteger(_Symbol, SYMBOL_FILLING_MODE); // 讀取商品填單屬性
+   if((filling & SYMBOL_FILLING_IOC) != 0) return ORDER_FILLING_IOC;    // 優先使用 IOC
+   if((filling & SYMBOL_FILLING_FOK) != 0) return ORDER_FILLING_FOK;    // 次選 FOK
+   return ORDER_FILLING_RETURN;                                         // 預設使用 RETURN
+} // 函數結束
+
+//+------------------------------------------------------------------+
+//| 規範手數至平台限制 (NormalizeLot) (同步最終版精準算式)              |
+//+------------------------------------------------------------------+
+double NormalizeLot(double lot) // 手數標準化
+{ // 函數開頭
+   double step   = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_STEP); // 讀取手數步長
+   double minLot = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN);  // 讀取最小手數
+   double maxLot = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MAX);  // 讀取最大手數
+   if(step <= 0) step = 0.01; // 防空值保護
+   double normalized = MathFloor(lot / step + 0.000001) * step; // 向下微調對齊
+   if(normalized < minLot) normalized = minLot; // 不得低於最小手數
+   if(normalized > maxLot) normalized = maxLot; // 不得高於最大手數
+   return NormalizeDouble(normalized, 2); // 規範小數位數 (同步最終版)
+} // 函數結束
+
+//+------------------------------------------------------------------+
+//| 保存 FTMO 風控狀態 (SaveFTMOState)                                 |
+//+------------------------------------------------------------------+
+void SaveFTMOState() // 保存 FTMO 狀態
+{ // 函數開頭
+   GlobalVariableSet(g_gvKeySODBaseline, g_SOD_Baseline); // 寫入 SOD 基準價
+   GlobalVariableSet(g_gvKeyLastServerDate, (double)g_LastServerDate); // 寫入伺服器日期
+   GlobalVariableSet(g_gvKeyDailyHalted, g_DailyHalted ? 1.0 : 0.0); // 寫入今日熔斷狀態
+} // 函數結束
+
+//+------------------------------------------------------------------+
+//| 載入 FTMO 風控狀態 (LoadFTMOState)                                 |
+//+------------------------------------------------------------------+
+void LoadFTMOState() // 載入 FTMO 狀態
+{ // 函數開頭
+   if(GlobalVariableCheck(g_gvKeySODBaseline)) g_SOD_Baseline = GlobalVariableGet(g_gvKeySODBaseline); // 載入 SOD 基準價
+   if(GlobalVariableCheck(g_gvKeyLastServerDate)) g_LastServerDate = (datetime)GlobalVariableGet(g_gvKeyLastServerDate); // 載入日期
+   if(GlobalVariableCheck(g_gvKeyDailyHalted)) g_DailyHalted = (GlobalVariableGet(g_gvKeyDailyHalted) > 0.5); // 載入熔斷狀態
+} // 函數結束
+
+//+------------------------------------------------------------------+
+//| 寫入持久化狀態 (SavePersistentState)                             |
+//+------------------------------------------------------------------+
+void SavePersistentState() // 保存 EA 持久化狀態
+{ // 函數開頭
+   GlobalVariableSet(g_gvKeyMainStop, g_MainStopPrice); // 保存主部位停損價
+   GlobalVariableSet(g_gvKeyPyramidStop, g_PyramidStopPrice); // 保存加倉停損價
+   GlobalVariableSet(g_gvKeyLastBar4H, (double)g_LastBar4H); // 保存上次 4H 時間
+   SaveFTMOState(); // 順便保存 FTMO 風控狀態
+} // 函數結束
+
+//+------------------------------------------------------------------+
+//| 讀取持久化狀態 (LoadPersistentState)                             |
+//+------------------------------------------------------------------+
+void LoadPersistentState() // 讀取 EA 持久化狀態
+{ // 函數開頭
+   if(GlobalVariableCheck(g_gvKeyMainStop)) g_MainStopPrice = GlobalVariableGet(g_gvKeyMainStop); // 讀取主部位停損價
+   if(GlobalVariableCheck(g_gvKeyPyramidStop)) g_PyramidStopPrice = GlobalVariableGet(g_gvKeyPyramidStop); // 讀取加倉停損價
+   if(GlobalVariableCheck(g_gvKeyLastBar4H)) g_LastBar4H = (datetime)GlobalVariableGet(g_gvKeyLastBar4H); // 讀取上次 4H 時間
+   LoadFTMOState(); // 讀取 FTMO 風控狀態
+   PrintFormat("💾 [狀態載入] 主停損=%.2f | 加倉停損=%.2f | 上次4H時間=%s", g_MainStopPrice, g_PyramidStopPrice, TimeToString(g_LastBar4H)); // 印出日誌 (同步最終版)
+} // 函數結束
+
+//+------------------------------------------------------------------+
+//| 取得有效的 DXY 美元指數商品名稱 (同步最終版多重搜尋)                |
+//+------------------------------------------------------------------+
+string GetValidDXYSymbol() // 自動搜尋經紀商相符 DXY 代號
+{ // 條件/區塊開頭
+   if(SymbolSelect(InpDXYSymbol, true)) return InpDXYSymbol; // 指定商品存在則使用
+   string candidates[] = {"DXY.cash", "DXY", "USDX", "USDOLLAR", "DXY_U6", "USDINDEX", "DXY.ecn", "DXY!", "USDX.cash"}; // 備選清單 (加入 FTMO 之 DXY.cash)
+   for(int i = 0; i < ArraySize(candidates); i++) // 遍歷備選清單
+   { // 條件/區塊開頭
+      if(SymbolSelect(candidates[i], true)) return candidates[i]; // 找到可用即回傳
+   } // 條件/區塊結束
+   return InpDXYSymbol; // 找不到則回傳預設值
+} // 條件/區塊結束
+
+//+------------------------------------------------------------------+
+//| 統計當前商品與本 EA MagicNumber 之持倉 (CountPositionsByEA)        |
+//+------------------------------------------------------------------+
+int CountPositionsByEA(ulong &mainTicket, ulong &pyrTicket) // 統計持倉票號
+{ // 函數開頭
+   mainTicket = 0; // 重置主部位票號
+   pyrTicket  = 0; // 重置加倉部位票號
+   int count = 0;  // 統計總個數
+
+   for(int i = PositionsTotal() - 1; i >= 0; i--) // 遍歷當前所有持倉
+   { // 迴圈開頭
+      ulong ticket = PositionGetTicket(i); // 取得持倉票號
+      if(ticket <= 0) continue; // 若票號無效跳過 (同步最終版)
+      if(PositionGetString(POSITION_SYMBOL) == _Symbol) // 檢查是否為當前商品
+      { // 條件開頭
+         ulong magic = PositionGetInteger(POSITION_MAGIC); // 讀取 Magic Number
+         if(magic == InpMagicMain) // 若為主部位
+         { // 條件開頭
+            mainTicket = ticket; // 保存主部位票號
+            count++; // 計數加一
+         } // 條件結束
+         else if(magic == InpMagicPyramid) // 若為加倉部位
+         { // 條件開頭
+            pyrTicket = ticket; // 保存加倉部位票號
+            count++; // 計數加一
+         } // 條件結束
+      } // 條件結束
+   } // 迴圈結束
+   return count; // 回傳持倉數量
+} // 函數結束
+
+//+------------------------------------------------------------------+
+//| 平倉指定 Magic Number 之所有部位 (ClosePositionsByMagic)          |
+//+------------------------------------------------------------------+
+bool ClosePositionsByMagic(ulong magic) // 平倉指定 Magic 部位
+{ // 函數開頭
+   bool allClosed = true; // 平倉結果標誌
+   g_trade.SetExpertMagicNumber(magic); // 切換 CTrade Magic Number (同步最終版)
+   for(int i = PositionsTotal() - 1; i >= 0; i--) // 遍歷所有持倉
+   { // 迴圈開頭
+      ulong ticket = PositionGetTicket(i); // 取得持倉票號
+      if(ticket <= 0) continue; // 無效票號跳過
+      if(PositionGetString(POSITION_SYMBOL) == _Symbol && PositionGetInteger(POSITION_MAGIC) == magic) // 符合條件
+      { // 條件開頭
+         if(!g_trade.PositionClose(ticket)) // 執行平倉
+         { // 條件開頭
+            PrintFormat("❌ 平倉失敗 [Ticket=%d, Magic=%d]: %s", ticket, magic, g_trade.ResultComment()); // 印出日誌
+            allClosed = false; // 標記失敗
+         } // 條件結束
+      } // 條件結束
+   } // 迴圈結束
+   return allClosed; // 回傳平倉結果
+} // 函數結束
+
+//+------------------------------------------------------------------+
+//| 平倉帳戶內「所有」頭寸 (包含手動與其他 EA) (CloseAllAccountPositions) |
+//+------------------------------------------------------------------+
+void CloseAllAccountPositions() // 平倉帳戶全數頭寸
+{ // 函數開頭
+   for(int retry = 0; retry < 3; retry++) // 最多重試 3 次
+   { // 迴圈開頭
+      int posCount = PositionsTotal(); // 當前頭寸數
+      if(posCount == 0) break; // 若已清空則退出
+
+      for(int i = posCount - 1; i >= 0; i--) // 遍歷清空
+      { // 迴圈開頭
+         ulong ticket = PositionGetTicket(i); // 取得頭寸票號
+         if(ticket > 0) // 票號有效
+         { // 條件開頭
+            g_trade.PositionClose(ticket); // 執行市價平倉
+         } // 條件結束
+      } // 迴圈結束
+      Sleep(200); // 暫停 200ms 等待成交
+   } // 迴圈結束
+} // 函數結束
+
+//+------------------------------------------------------------------+
+//| FTMO 每日風控檢查與 SOD 基準重置 (CheckAndResetDailySOD)          |
+//+------------------------------------------------------------------+
+void CheckAndResetDailySOD() // FTMO 每日風控邏輯
+{ // 函數開頭
+   datetime nowServer = TimeCurrent(); // 取得伺服器當前時間
+   MqlDateTime dt; // 時間結構體
+   TimeToStruct(nowServer, dt); // 轉為結構體
+   dt.hour = 0; dt.min = 0; dt.sec = 0; // 歸零時分秒
+   datetime todayDateOnly = StructToTime(dt); // 取得當天零點時間戳
+
+   if(todayDateOnly != g_LastServerDate || g_SOD_Baseline == 0.0) // 若跨日跳至新一天或尚未初始化
+   { // 條件開頭
+      double curBalance = AccountInfoDouble(ACCOUNT_BALANCE); // 當前餘額
+      double curEquity  = AccountInfoDouble(ACCOUNT_EQUITY);  // 當前權益
+      g_SOD_Baseline   = MathMax(curBalance, curEquity);     // 取餘額與權益之高者為今日 SOD 基準
+      g_LastServerDate = todayDateOnly;                      // 更新日期
+      g_DailyHalted    = false;                              // 重置今日熔斷狀態
+      SaveFTMOState();                                       // 保存狀態
+      PrintFormat("☀️ [FTMO 每日風控重置] 伺服器時間 00:00:00 重置成功！SOD Baseline = %.2f (Balance=%.2f, Equity=%.2f)", g_SOD_Baseline, curBalance, curEquity); // 印出日誌
+      if(InpEnableAlerts) Alert("☀️ FTMO 每日風控重置！今日 SOD 基準價為 ", DoubleToString(g_SOD_Baseline, 2)); // 發送通知
+   } // 條件結束
+
+   if(g_DailyHalted) // 若今日已經觸發過熔斷
+   { // 條件開頭
+      if(PositionsTotal() > 0 && InpCloseAllAccountPos) CloseAllAccountPositions(); // 再次確保強制清空
+      return; // 直接返回跳過後續交易
+   } // 條件結束
+
+   double curEquity = AccountInfoDouble(ACCOUNT_EQUITY); // 取當前即時權益
+   if(g_SOD_Baseline > 0.0) // 確保基準點有效
+   { // 條件開頭
+      double dailyHardFloor = g_SOD_Baseline * (1.0 - InpMaxDailyLossPct / 100.0); // 計算當日死線金額
+      if(curEquity <= dailyHardFloor) // 若即時權益跌破當日死線
+      { // 條件開頭
+         double actualLossPct = ((g_SOD_Baseline - curEquity) / g_SOD_Baseline) * 100.0; // 計算實際虧損比例
+         g_DailyHalted = true; // 標記今日觸發熔斷
+         SaveFTMOState(); // 保存狀態
+         PrintFormat("🚨🚨🚨 [FTMO 緊急風控熔斷] 即時權益 %.2f 跌破當日死線 %.2f！當日虧損 %.2f%% >= 門檻 %.2f%% (SOD Baseline: %.2f)", curEquity, dailyHardFloor, actualLossPct, InpMaxDailyLossPct, g_SOD_Baseline); // 印出日誌
+         if(InpEnableAlerts) Alert("🚨 [FTMO 風控觸發] 當前權益跌破當日死線 ", DoubleToString(dailyHardFloor, 2), "！緊急全數平倉並停止今日交易！"); // 發送警報
+         if(InpCloseAllAccountPos) CloseAllAccountPositions(); // 清空帳戶所有頭寸
+         else { ClosePositionsByMagic(InpMagicMain); ClosePositionsByMagic(InpMagicPyramid); } // 僅清空本 EA 部位
+         g_MainStopPrice = 0.0; // 清空主停損價
+         g_PyramidStopPrice = 0.0; // 清空加倉停損價
+         SavePersistentState(); // 儲存狀態
+         return; // 結束
+      } // 條件結束
+   } // 條件結束
+
+   if(InpInitialBalance > 0.0) // 確保初始資金參數有效
+   { // 條件開頭
+      double totalHardFloor = InpInitialBalance * (1.0 - InpMaxTotalLossPct / 100.0); // 計算帳戶總死線
+      if(curEquity <= totalHardFloor) // 觸及總最大虧損線
+      { // 條件開頭
+         g_DailyHalted = true; // 標記熔斷
+         SaveFTMOState(); // 保存狀態
+         PrintFormat("🚨🚨🚨 [FTMO 總虧損熔斷] 即時權益 %.2f 跌破帳戶總死線 %.2f！(初始資金: %.2f)", curEquity, totalHardFloor, InpInitialBalance); // 印出日誌
+         if(InpEnableAlerts) Alert("🚨 [FTMO 總風控觸發] 當前權益跌破總死線 ", DoubleToString(totalHardFloor, 2), "！緊急平倉並終止所有交易！"); // 發送通知
+         if(InpCloseAllAccountPos) CloseAllAccountPositions(); // 清空全部位
+         else { ClosePositionsByMagic(InpMagicMain); ClosePositionsByMagic(InpMagicPyramid); } // 僅清空本 EA 部位
+         g_MainStopPrice = 0.0; // 清空停損
+         g_PyramidStopPrice = 0.0; // 清空停損
+         SavePersistentState(); // 儲存狀態
+         return; // 結束
+      } // 條件結束
+   } // 條件結束
+} // 函數結束
+
+//+------------------------------------------------------------------+
+//| 計算 Alpha 因子 (CalculateAlpha) (同步最終版精準減號算式)            |
+//+------------------------------------------------------------------+
+bool CalculateAlpha(double &alpha1, double &alpha5, double &alpha10) // 計算日線 Alpha
+{ // 函數開頭
+   string dxySym = GetValidDXYSymbol(); // 取得有效的 DXY 商品代號 (同步最終版)
+
+   double goldCloses[12]; // 宣告黃金收盤價陣列
+   for(int i = 0; i < 12; i++) // 迴圈讀取 12 根日線收盤價
+   { // 迴圈開頭
+      goldCloses[i] = iClose(_Symbol, PERIOD_D1, i + 1); // 從 bar[1] 開始讀取
+      if(goldCloses[i] == 0) return false; // 若未準備好則回傳失敗
+   } // 迴圈結束
+
+   double dxyCloses[12]; // 宣告 DXY 收盤價陣列
+   for(int i = 0; i < 12; i++) // 迴圈讀取 12 根 DXY 日線收盤價
+   { // 迴圈開頭
+      dxyCloses[i] = iClose(dxySym, PERIOD_D1, i + 1); // 從 bar[1] 開始讀取
+      if(dxyCloses[i] == 0) return false; // 若未準備好則回傳失敗
+   } // 迴圈結束
+
+   double g_ret1  = (goldCloses[0] - goldCloses[1])  / goldCloses[1];  // 黃金 1 日報酬
+   double g_ret5  = (goldCloses[0] - goldCloses[5])  / goldCloses[5];  // 黃金 5 日報酬
+   double g_ret10 = (goldCloses[0] - goldCloses[10]) / goldCloses[10]; // 黃金 10 日報酬
+
+   double d_ret1  = (dxyCloses[0] - dxyCloses[1])  / dxyCloses[1];  // 美元 1 日報酬
+   double d_ret5  = (dxyCloses[0] - dxyCloses[5])  / dxyCloses[5];  // 美元 5 日報酬
+   double d_ret10 = (dxyCloses[0] - dxyCloses[10]) / dxyCloses[10]; // 美元 10 日報酬
+
+   alpha1  = g_ret1  - d_ret1;  // Alpha1 因子 (修正：精準對齊最終版減號 g_ret - d_ret)
+   alpha5  = g_ret5  - d_ret5;  // Alpha5 因子 (修正：精準對齊最終版減號 g_ret - d_ret)
+   alpha10 = g_ret10 - d_ret10; // Alpha10 因子 (修正：精準對齊最終版減號 g_ret - d_ret)
+   return true; // 計算成功
+} // 函數結束
+
+//+------------------------------------------------------------------+
+//| 更新日線過濾器與 Alpha 加倉許可 (UpdateDailyFilters) (同步最終版) |
+//+------------------------------------------------------------------+
+void UpdateDailyFilters() // 更新日線趨勢與加倉權限
+{ // 函數開頭
+   double ma50Array[1], ma20Array[1], ma60Array[1], dailyCloseArray[1]; // 宣告暫存陣列 (同步最終版)
+   if(CopyBuffer(g_hMA50D, 0, 1, 1, ma50Array) <= 0) return; // 讀取日線 50SMA
+   if(CopyBuffer(g_hMA20D, 0, 1, 1, ma20Array) <= 0) return; // 讀取日線 20SMA
+   if(CopyBuffer(g_hMA60D, 0, 1, 1, ma60Array) <= 0) return; // 讀取日線 60SMA
+
+   dailyCloseArray[0] = iClose(_Symbol, PERIOD_D1, 1); // 讀取日線前一根收盤價
+   if(dailyCloseArray[0] == 0) return; // 防零值
+
+   double alpha1 = 0, alpha5 = 0, alpha10 = 0; // 宣告 Alpha 變數
+   bool alphaOK = CalculateAlpha(alpha1, alpha5, alpha10); // 計算 Alpha (同步最終版)
+
+   g_RegimeBull = (dailyCloseArray[0] > ma50Array[0]); // 牛市條件: 收盤價 > 日線 50MA
+
+   if(alphaOK) // 若 Alpha 計算成功 (同步最終版)
+   { // 條件開頭
+      g_PyramidLongOK  = (alpha1 > 0) && (alpha5 > 0) && (alpha10 > 0) && (ma20Array[0] > ma60Array[0]); // 加多條件
+      g_PyramidShortOK = (alpha1 < 0) && (alpha5 < 0) && (alpha10 < 0) && (ma20Array[0] < ma60Array[0]); // 加空條件
+   } // 條件結束
+   else // 若 Alpha 數據不可用 (回退純 MA 過濾，同步最終版)
+   { // 條件開頭
+      g_PyramidLongOK  = (ma20Array[0] > ma60Array[0]); // 回退純 MA 過濾器
+      g_PyramidShortOK = (ma20Array[0] < ma60Array[0]); // 回退純 MA 過濾器
+   } // 條件結束
+
+   g_DailyReady = true; // 標記日線過濾器就緒
+} // 函數結束
+
+//+------------------------------------------------------------------+
+//| 從 1H 數據精準合成 UTC +0h (00, 04, 08, 12, 16, 20) 之 N 根 4H K線數據 |
+//+------------------------------------------------------------------+
+bool GetUTC0h4H_BarData(int nBars, double &outOpen[], double &outHigh[], double &outLow[], double &outClose[]) // 精準合成 UTC +0h 4H K線
+{ // 函數開頭
+   ArrayResize(outOpen, nBars); // 調整 Open 陣列大小
+   ArrayResize(outHigh, nBars); // 調整 High 陣列大小
+   ArrayResize(outLow, nBars);  // 調整 Low 陣列大小
+   ArrayResize(outClose, nBars); // 調整 Close 陣列大小
+
+   MqlRates rates1H[600]; // 宣告 1H 數據陣列
+   int copied = CopyRates(_Symbol, PERIOD_H1, 0, 600, rates1H); // 讀取 600 根 1H 數據
+   if(copied < (nBars * 4 + 20)) return false; // 數據不足跳過
+
+   int gmtOffset = (int)(TimeCurrent() - TimeGMT()); // 正確取得券商伺服器之 GMT 動態偏移秒數 (修正原本使用用戶電腦本地時區之 Bug)
+   int startIdx = copied - 2; // 從已完結之 bar[1] 1H 開始倒搜 (避免包含尚未完結之當前 bar[0])
+   while(startIdx >= 0) // 向後尋找 +0h 4H 結尾 hour % 4 == 3
+   { // 迴圈開頭
+      datetime utcTime = rates1H[startIdx].time - gmtOffset; // 動態轉為標準 UTC 時間 (解決夏令 GMT+3 與冬令 GMT+2 時差 bug)
+      MqlDateTime dt; // 時間結構體
+      TimeToStruct(utcTime, dt); // 解析標準 UTC 時間
+      if(dt.hour % 4 == 3) break; // 匹配 03, 07, 11, 15, 19, 23 點
+      startIdx--; // 向前推進
+   } // 迴圈結束
+
+   if(startIdx < nBars * 4 + 4) return false; // 數據不足跳過
+
+   int lastClosedEnd = startIdx; // startIdx (dt.hour % 4 == 3) 即為最新完結之 +0h 4H 末端 1H
+   for(int k = 0; k < nBars; k++) // 遍歷合成 N 根 4H K線
+   { // 迴圈開頭
+      int idx = nBars - 1 - k; // 寫入陣列索引
+      int end1H = lastClosedEnd - (k * 4); // 該 4H 末端 1H
+      int start1H = end1H - 3; // 該 4H 開頭 1H
+
+      outOpen[idx]  = rates1H[start1H].open; // 開盤價
+      outClose[idx] = rates1H[end1H].close;   // 收盤價
+      outHigh[idx]  = rates1H[start1H].high; // 最高價初始化
+      outLow[idx]   = rates1H[start1H].low;  // 最低價初始化
+      for(int m = start1H + 1; m <= end1H; m++) // 取 4 小時內極值
+      { // 迴圈開頭
+         if(rates1H[m].high > outHigh[idx]) outHigh[idx] = rates1H[m].high; // 最高價
+         if(rates1H[m].low < outLow[idx])   outLow[idx]  = rates1H[m].low;  // 最低價
+      } // 迴圈結束
+   } // 迴圈結束
+   return true; // 合成成功
+} // 函數結束
+
+//+------------------------------------------------------------------+
+//| 重構移動停損價 (ReconstructStopPrices) (同步最終版)               |
+//+------------------------------------------------------------------+
+void ReconstructStopPrices() // 重構移動停損價
+{ // 函數開頭
+   ulong mainTicket = 0, pyrTicket = 0; // 持倉票號
+   int totalEAPos = CountPositionsByEA(mainTicket, pyrTicket); // 統計持倉
+   if(totalEAPos == 0) return; // 無持倉無需重構
+
+   Print("🔄 [狀態重構] 正在為當前持倉重構歷史軌跡停損價..."); // 印出日誌
+
+   datetime entryTime = 0; // 進場時間
+   ENUM_POSITION_TYPE posType = POSITION_TYPE_BUY; // 方向
+   if(mainTicket > 0 && PositionSelectByTicket(mainTicket)) // 主部位
+   { // 條件開頭
+      entryTime = (datetime)PositionGetInteger(POSITION_TIME); // 時間
+      posType   = (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE); // 方向
+   } // 條件結束
+   else if(pyrTicket > 0 && PositionSelectByTicket(pyrTicket)) // 加倉部位
+   { // 條件開頭
+      entryTime = (datetime)PositionGetInteger(POSITION_TIME); // 時間
+      posType   = (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE); // 方向
+   } // 條件結束
+
+   double stopPrice = 0.0; // 停損價變數
+
+   if(_Period == PERIOD_H1) // 掛載在 H1 圖表上時，完全使用合成之 +0h 4H 數據重構停損 (同步最終版)
+   { // 條件開頭
+      double oBars[100], hBars[100], lBars[100], cBars[100]; // 宣告 100 根 4H 陣列
+      if(GetUTC0h4H_BarData(100, oBars, hBars, lBars, cBars)) // 精準合成 +0h 4H K 線
+      { // 條件開頭
+         for(int i = 2; i < 100; i++) // 正向重放歷史 4H 軌跡
+         { // 迴圈開頭
+            double h = hBars[i]; // 當前 High
+            double l = lBars[i]; // 當前 Low
+            double h_prev = hBars[i-1]; // 前 High
+            double l_prev = lBars[i-1]; // 前 Low
+
+            double tr = MathMax(h - l, MathMax(MathAbs(h - cBars[i-1]), MathAbs(l - cBars[i-1]))); // 真實波幅 TR
+            double atr = tr; // 軌跡估算 ATR
+
+            if(posType == POSITION_TYPE_BUY) // 多頭軌跡
+            { // 條件開頭
+               double initStop = MathMin(l, l_prev) - 1.0 * atr; // 計算初始停損
+               if(stopPrice == 0.0 || initStop > stopPrice) stopPrice = initStop; // 首根賦值
+               else if(cBars[i] > h_prev) // 突破前高
+               { // 條件開頭
+                  double newStop = MathMin(l, l_prev) - 1.0 * atr; // 計算新停損
+                  if(newStop > stopPrice) stopPrice = newStop; // 向上移動停損
+               } // 條件結束
+            } // 條件結束
+            else // 空頭軌跡
+            { // 條件開頭
+               double initStop = MathMax(h, h_prev) + 1.0 * atr; // 計算初始停損
+               if(stopPrice == 0.0 || initStop < stopPrice) stopPrice = initStop; // 首根賦值
+               else if(cBars[i] < l_prev) // 跌破前低
+               { // 條件開頭
+                  double newStop = MathMax(h, h_prev) + 1.0 * atr; // 計算新停損
+                  if(newStop < stopPrice) stopPrice = newStop; // 向下移動停損
+               } // 條件結束
+            } // 條件結束
+         } // 迴圈結束
+      } // 條件結束
+   } // 條件結束
+   else // 原 H4 圖表相容模式
+   { // 條件開頭
+      int startBarIndex = iBarShift(_Symbol, PERIOD_H4, entryTime, false); // 計算進場對應之 4H K 線索引
+      if(startBarIndex < 0) startBarIndex = 100; // 防錯保護
+
+      for(int i = startBarIndex; i >= 1; i--) // 從進場 K 線正向重放至上一根完結 K 線
+      { // 迴圈開頭
+         double h = iHigh(_Symbol, PERIOD_H4, i); // 取當時 High
+         double l = iLow(_Symbol, PERIOD_H4, i); // 取當時 Low
+         double h_prev = iHigh(_Symbol, PERIOD_H4, i + 1); // 取前 High
+         double l_prev = iLow(_Symbol, PERIOD_H4, i + 1); // 取前 Low
+
+         double atrArray[1]; // ATR 陣列
+         if(CopyBuffer(g_hATR4H, 0, i, 1, atrArray) <= 0) continue; // 讀取當時 ATR
+         double atr = atrArray[0]; // ATR 值
+
+         if(posType == POSITION_TYPE_BUY) // 多頭軌跡
+         { // 條件開頭
+            double initStop = MathMin(l, l_prev) - 1.0 * atr; // 計算初始停損
+            if(stopPrice == 0.0 || initStop > stopPrice) stopPrice = initStop; // 首根賦值
+            else if(iClose(_Symbol, PERIOD_H4, i) > h_prev) // 若突破前高
+            { // 條件開頭
+               double newStop = MathMin(l, l_prev) - 1.0 * atr; // 計算新停損
+               if(newStop > stopPrice) stopPrice = newStop; // 上移停損
+            } // 條件結束
+         } // 條件結束
+         else // 空頭軌跡
+         { // 條件開頭
+            double initStop = MathMax(h, h_prev) + 1.0 * atr; // 計算初始停損
+            if(stopPrice == 0.0 || initStop < stopPrice) stopPrice = initStop; // 首根賦值
+            else if(iClose(_Symbol, PERIOD_H4, i) < l_prev) // 若跌破前低
+            { // 條件開頭
+               double newStop = MathMax(h, h_prev) + 1.0 * atr; // 計算新停損
+               if(newStop < stopPrice) stopPrice = newStop; // 下移停損
+            } // 條件結束
+         } // 條件結束
+      } // 迴圈結束
+   } // 條件結束
+
+   if(mainTicket > 0) g_MainStopPrice = stopPrice; // 寫入主停損
+   if(pyrTicket > 0)  g_PyramidStopPrice = stopPrice; // 寫入加倉停損
+   SavePersistentState(); // 保存狀態
+   PrintFormat("✅ [狀態重構完成] 計算出之移動停損價: %.2f", stopPrice); // 日誌
+} // 函數結束
+
+//+------------------------------------------------------------------+
+//| 處理新完結之 4H K 線交易邏輯 (ProcessNew4HBar) (同步最終版)        |
+//+------------------------------------------------------------------+
+void ProcessNew4HBar() // 新 4H K 線完結邏輯
+{ // 函數開頭
+   double c1, c2, h1, l1, h2, l2, ma4h, atr4h; // 宣告核心 OHLC 與指標變數
+
+   if(_Period == PERIOD_H1) // 圖表為 1H 時採用 UTC +0h 合成數據
+   { // 條件開頭
+      double oBars[35], hBars[35], lBars[35], cBars[35]; // 宣告暫存陣列
+      if(!GetUTC0h4H_BarData(35, oBars, hBars, lBars, cBars)) // 合成 35 根 +0h 4H K線
+      { // 條件開頭
+         Print("⚠️ [+0h 數據合成中] 等待 1H 數據加載..."); // 印出提示
+         return; // 數據未就緒跳過
+      } // 條件結束
+
+      c1 = cBars[34]; // bar[1] 完結 4H 收盤價
+      c2 = cBars[33]; // bar[2] 完結 4H 收盤價
+      h1 = hBars[34]; // bar[1] 完結 4H 最高價
+      l1 = lBars[34]; // bar[1] 完結 4H 最低價
+      h2 = hBars[33]; // bar[2] 完結 4H 最高價
+      l2 = lBars[33]; // bar[2] 完結 4H 最低價
+
+      double sumClose = 0; // 30MA 累積和
+      for(int k = 5; k < 35; k++) sumClose += cBars[k]; // 累加前 30 根 4H 收盤價
+      ma4h = sumClose / 30.0; // 4H 30MA 值
+
+      double sumTR = 0; // 14ATR 累積和
+      for(int k = 21; k < 35; k++) // 累加 14 根 TR
+      { // 迴圈開頭
+         double tr1 = hBars[k] - lBars[k]; // 高低差
+         double tr2 = MathAbs(hBars[k] - cBars[k-1]); // 高前收差
+         double tr3 = MathAbs(lBars[k] - cBars[k-1]); // 低前收差
+         double tr  = MathMax(tr1, MathMax(tr2, tr3)); // 取 TR
+         sumTR += tr; // 累加
+      } // 迴圈結束
+      atr4h = sumTR / 14.0; // 4H 14ATR 值
+   } // 條件結束
+   else // 原 H4 圖表相容模式
+   { // 條件開頭
+      double ma4hArray[1], atr4hArray[1]; // 宣告快取陣列
+      if(CopyBuffer(g_hMA4H, 0, 1, 1, ma4hArray) <= 0) return; // 讀取 4H MA
+      if(CopyBuffer(g_hATR4H, 0, 1, 1, atr4hArray) <= 0) return; // 讀取 4H ATR
+
+      c1 = iClose(_Symbol, PERIOD_H4, 1); // bar[1] 收盤價
+      c2 = iClose(_Symbol, PERIOD_H4, 2); // bar[2] 收盤價
+      h1 = iHigh(_Symbol, PERIOD_H4, 1);  // bar[1] 最高價
+      l1 = iLow(_Symbol, PERIOD_H4, 1);   // bar[1] 最低價
+      h2 = iHigh(_Symbol, PERIOD_H4, 2);  // bar[2] 最高價
+      l2 = iLow(_Symbol, PERIOD_H4, 2);   // bar[2] 最低價
+      ma4h = ma4hArray[0]; // 4H MA 值
+      atr4h = atr4hArray[0]; // 4H ATR 值
+   } // 條件結束
+
+   bool sig_long_4h = (c1 > ma4h) && (c1 > c2); // 4H 多頭訊號 (Close > 30MA 且動能 > 0)
+
+   double longStopInit  = MathMin(l1, l2) - 1.0 * atr4h; // 初始多單停損價
+   double shortStopInit = MathMax(h1, h2) + 1.0 * atr4h; // 初始空單停損價
+
+   ulong mainTicket = 0, pyrTicket = 0; // 持倉票號
+   int totalEAPos = CountPositionsByEA(mainTicket, pyrTicket); // 統計持倉
+
+   if(totalEAPos > 0 && g_MainStopPrice == 0.0) // 若有持倉但停損為零 (防失億)
+   { // 條件開頭
+      ReconstructStopPrices(); // 重構停損價
+   } // 條件結束
+
+   //--- 孤兒加碼單安全防護：若主部位已被手動平倉或止損，但加碼單仍孤立存在
+   if(mainTicket == 0 && pyrTicket > 0) // 檢測是否出現孤兒加碼單
+   { // 條件開頭
+      PrintFormat("⚠️ [孤兒加碼單防護] 主部位已平倉但加碼單 [Ticket=%d] 仍存在，緊急平倉孤兒加碼單！", pyrTicket); // 印出安全日誌
+      ClosePositionsByMagic(InpMagicPyramid); // 清空孤兒加碼部位
+      g_PyramidStopPrice = 0.0; // 清空加倉停損價
+      SavePersistentState(); // 保存狀態
+   } // 條件結束
+
+   //--- CASE A: 當前持有【主多單】
+   if(mainTicket > 0 && PositionSelectByTicket(mainTicket) && PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY) // 判斷是否持有主多單
+   { // 條件開頭
+      if(c1 < g_MainStopPrice || !sig_long_4h) // 觸發停損或多頭訊號消失
+      { // 條件開頭
+         string reason = (c1 < g_MainStopPrice) ? "跌破移動停損" : "4H多頭訊號消失"; // 出場原因
+         PrintFormat("🔴 [主多單平倉] 收盤=%.2f | 停損=%.2f | 原因=%s", c1, g_MainStopPrice, reason); // 印出日誌
+         ClosePositionsByMagic(InpMagicMain); // 平倉主多單
+         ClosePositionsByMagic(InpMagicPyramid); // 一併平倉加多單
+         g_MainStopPrice = 0.0; // 清空主停損價
+         g_PyramidStopPrice = 0.0; // 清空加倉停損價
+         SavePersistentState(); // 儲存狀態
+         return; // 結束執行
+      } // 條件結束
+      else // 未平倉，進行移動停損與加多檢查
+      { // 條件開頭
+         if(c1 > h2) // 突破前高
+         { // 條件開頭
+            g_MainStopPrice = longStopInit; // 向上移動主多停損
+            SavePersistentState(); // 儲存狀態
+         } // 條件結束
+
+         if(InpEnablePyramid && pyrTicket > 0 && PositionSelectByTicket(pyrTicket)) // 若持有加多單
+         { // 條件開頭
+            if(c1 < g_PyramidStopPrice) // 觸發加多單停損
+            { // 條件開頭
+               PrintFormat("🟠 [加多單平倉] 收盤=%.2f | 停損=%.2f", c1, g_PyramidStopPrice); // 印出日誌
+               ClosePositionsByMagic(InpMagicPyramid); // 單獨平倉加多單
+               g_PyramidStopPrice = 0.0; // 清空加多停損價
+               SavePersistentState(); // 儲存狀態
+            } // 條件結束
+            else if(c1 > h2) // 突破前高
+            { // 條件開頭
+               g_PyramidStopPrice = longStopInit; // 向上移動加多單停損
+               SavePersistentState(); // 儲存狀態
+            } // 條件結束
+         } // 條件結束
+         else if(InpEnablePyramid && pyrTicket == 0 && g_RegimeBull && g_PyramidLongOK && !g_DailyHalted) // 滿足加多條件
+         { // 條件開頭
+            g_trade.SetExpertMagicNumber(InpMagicPyramid); // 切換 Magic Number
+            double a1 = 0, a5 = 0, a10 = 0; // Alpha 變數
+            CalculateAlpha(a1, a5, a10); // 計算當前 Alpha 動能
+            double atr_safe = MathMax(atr4h, 4.0); // 確保 ATR 大於等於 4.0 點防止極端除零或過度放大
+            double atr_ratio = InpBaselineATR / atr_safe; // 51Bitquant 核心：計算波動度倒數權重
+            double base_mult = (a10 > InpAlphaBoostThresh) ? InpPyramidBoostMultiplier : 1.0; // 基礎乘數 (Alpha10 > 3% 為 2.0x，否則 1.0x)
+            double dynamic_mult = MathMin(InpMaxPyrMult, MathMax(InpMinPyrMult, base_mult * atr_ratio)); // 限制在 [Min, Max] 範圍
+            if(a10 > 0.04 && dynamic_mult < InpAlphaTrendFloor) dynamic_mult = InpAlphaTrendFloor; // 超強單邊動能保底保護 (防止高 ATR 誤殺順勢利潤)
+            double pyrLot = NormalizeLot(InpLotSize * dynamic_mult); // 規範最終加多手數
+
+            if(g_trade.Buy(pyrLot, _Symbol, 0, 0, 0, "Pyramid_Long")) // 買入加多
+            { // 條件開頭
+               g_PyramidStopPrice = longStopInit; // 設定加多停損
+               PrintFormat("🟢 [51Bitquant加多進場] 手數=%.2f (%.2fx ATR調制, ATR=%.2f) | 停損=%.2f", pyrLot, dynamic_mult, atr4h, g_PyramidStopPrice); // 印出日誌
+               SavePersistentState(); // 儲存狀態
+            } // 條件結束
+         } // 條件結束
+      } // 條件結束
+   } // 條件結束
+
+   //--- CASE B: 當前持有【主空單】
+   else if(mainTicket > 0 && PositionSelectByTicket(mainTicket) && PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_SELL) // 判斷是否持有主空單
+   { // 條件開頭
+      if(c1 > g_MainStopPrice || sig_long_4h) // 觸發停損或轉多頭訊號
+      { // 條件開頭
+         string reason = (c1 > g_MainStopPrice) ? "突破移動停損" : "4H訊號轉多"; // 出場原因
+         PrintFormat("🔴 [主空單平倉] 收盤=%.2f | 停損=%.2f | 原因=%s", c1, g_MainStopPrice, reason); // 印出日誌
+         ClosePositionsByMagic(InpMagicMain); // 平倉主空單
+         ClosePositionsByMagic(InpMagicPyramid); // 一併平倉加空單
+         g_MainStopPrice = 0.0; // 清空主停損價
+         g_PyramidStopPrice = 0.0; // 清空加倉停損價
+         SavePersistentState(); // 儲存狀態
+         return; // 結束執行
+      } // 條件結束
+      else // 未平倉，進行移動停損與加空檢查
+      { // 條件開頭
+         if(c1 < l2) // 跌破前低
+         { // 條件開頭
+            g_MainStopPrice = shortStopInit; // 向下移動主空停損
+            SavePersistentState(); // 儲存狀態
+         } // 條件結束
+
+         if(InpEnablePyramid && pyrTicket > 0 && PositionSelectByTicket(pyrTicket)) // 若持有加空單
+         { // 條件開頭
+            if(c1 > g_PyramidStopPrice) // 觸發加空單停損
+            { // 條件開頭
+               PrintFormat("🟠 [加空單平倉] 收盤=%.2f | 停損=%.2f", c1, g_PyramidStopPrice); // 印出日誌
+               ClosePositionsByMagic(InpMagicPyramid); // 單獨平倉加空單
+               g_PyramidStopPrice = 0.0; // 清空加空停損價
+               SavePersistentState(); // 儲存狀態
+            } // 條件結束
+            else if(c1 < l2) // 跌破前低
+            { // 條件開頭
+               g_PyramidStopPrice = shortStopInit; // 向下移動加空單停損
+               SavePersistentState(); // 儲存狀態
+            } // 條件結束
+         } // 條件結束
+         else if(InpEnablePyramid && pyrTicket == 0 && !g_RegimeBull && g_PyramidShortOK && !g_DailyHalted) // 滿足加空條件
+         { // 條件開頭
+            g_trade.SetExpertMagicNumber(InpMagicPyramid); // 切換 Magic Number
+            double a1 = 0, a5 = 0, a10 = 0; // Alpha 變數
+            CalculateAlpha(a1, a5, a10); // 計算當前 Alpha 動能
+            double atr_safe = MathMax(atr4h, 4.0); // 確保 ATR 大於等於 4.0 點防止極端除零或過度放大
+            double atr_ratio = InpBaselineATR / atr_safe; // 51Bitquant 核心：計算波動度倒數權重
+            double base_mult = (a10 < -InpAlphaBoostThresh) ? InpPyramidBoostMultiplier : 1.0; // 基礎乘數 (Alpha10 < -3% 為 2.0x，否則 1.0x)
+            double dynamic_mult = MathMin(InpMaxPyrMult, MathMax(InpMinPyrMult, base_mult * atr_ratio)); // 限制在 [Min, Max] 範圍
+            if(a10 < -0.04 && dynamic_mult < InpAlphaTrendFloor) dynamic_mult = InpAlphaTrendFloor; // 超強單邊動能保底保護 (防止高 ATR 誤殺順勢利潤)
+            double pyrLot = NormalizeLot(InpLotSize * dynamic_mult); // 規範最終加空手數
+
+            if(g_trade.Sell(pyrLot, _Symbol, 0, 0, 0, "Pyramid_Short")) // 賣出加空
+            { // 條件開頭
+               g_PyramidStopPrice = shortStopInit; // 設定加空停損
+               PrintFormat("🔻 [51Bitquant加空進場] 手數=%.2f (%.2fx ATR調制, ATR=%.2f) | 停損=%.2f", pyrLot, dynamic_mult, atr4h, g_PyramidStopPrice); // 印出日誌
+               SavePersistentState(); // 儲存狀態
+            } // 條件結束
+         } // 條件結束
+      } // 條件結束
+   } // 條件結束
+
+   //--- CASE C: 當前無持倉，檢查建倉 (同步最終版：重新統計持倉數量)
+   totalEAPos = CountPositionsByEA(mainTicket, pyrTicket); // 重新統計持倉 (同步最終版)
+   if(totalEAPos == 0 && !g_DailyHalted) // 無持倉且當日未熔斷
+   { // 條件開頭
+      double mainLot = NormalizeLot(InpLotSize); // 規範主部位手數 (同步最終版)
+      if(g_RegimeBull && sig_long_4h) // 牛市且 4H 轉多頭
+      { // 條件開頭
+         g_trade.SetExpertMagicNumber(InpMagicMain); // 切換 Magic Number
+         if(g_trade.Buy(mainLot, _Symbol, 0, 0, 0, "Main_Long")) // 買入主多單
+         { // 條件開頭
+            g_MainStopPrice = longStopInit; // 設定主多停損
+            PrintFormat("🟢 [主多單進場] 手數=%.2f | 停損=%.2f | MA4H=%.2f", mainLot, g_MainStopPrice, ma4h); // 印出日誌
+            if(InpEnableAlerts) Alert("🟢 Gold 4H: 主多單進場 @ ", DoubleToString(SymbolInfoDouble(_Symbol, SYMBOL_ASK), 2)); // 發送警報
+            SavePersistentState(); // 儲存狀態
+         } // 條件結束
+      } // 條件結束
+      else if(!g_RegimeBull && !sig_long_4h) // 熊市且 4H 轉空頭
+      { // 條件開頭
+         g_trade.SetExpertMagicNumber(InpMagicMain); // 切換 Magic Number
+         if(g_trade.Sell(mainLot, _Symbol, 0, 0, 0, "Main_Short")) // 賣出主空單
+         { // 條件開頭
+            g_MainStopPrice = shortStopInit; // 設定主空停損
+            PrintFormat("🔻 [主空單進場] 手數=%.2f | 停損=%.2f | MA4H=%.2f", mainLot, g_MainStopPrice, ma4h); // 印出日誌
+            SavePersistentState(); // 儲存狀態
+            if(InpEnableAlerts) Alert("🔻 Gold 4H: 主空單進場 @ ", DoubleToString(SymbolInfoDouble(_Symbol, SYMBOL_BID), 2)); // 發送警報
+         } // 條件結束
+      } // 條件結束
+   } // 條件結束
+} // 函數結束
+
+//+------------------------------------------------------------------+
+//| 判斷當前 1H K 線是否為台北時間 +0h (00, 04, 08, 12, 16, 20) 新 4H 開盤 |
+//+------------------------------------------------------------------+
+bool IsNewUTC4HBar(datetime current1HTime) // 判斷是否為 UTC +0h 4H 新 K 線
+{ // 函數開頭
+   int gmtOffset = (int)(TimeCurrent() - TimeGMT()); // 正確取得券商伺服器之 GMT 動態偏移秒數 (修正原本使用用戶電腦本地時區之 Bug)
+   datetime utcTime = current1HTime - gmtOffset; // 動態轉為標準 UTC 時間
+   MqlDateTime dt; // 時間結構體
+   TimeToStruct(utcTime, dt); // 解析 UTC 時間
+   return (dt.hour % 4 == 0); // 判斷 UTC 小時是否為 00, 04, 08, 12, 16, 20
+} // 函數結束
+
+//+------------------------------------------------------------------+
+//| Expert initialization function                                   |
+//+------------------------------------------------------------------+
+int OnInit() // EA 初始化函數
+{ // 函數開頭
+   string prefix = "G4H_" + IntegerToString(InpMagicMain) + "_"; // 建立前綴字串 (同步最終版)
+   g_gvKeyMainStop       = prefix + "MainStop";      // 建立主停損 Key (同步最終版)
+   g_gvKeyPyramidStop    = prefix + "PyramidStop";   // 建立加倉停損 Key (同步最終版)
+   g_gvKeyLastBar4H      = prefix + "LastBar4H";     // 建立時間 Key (同步最終版)
+   g_gvKeySODBaseline    = prefix + "SODBaseline";   // 建立 SOD 基準價 Key
+   g_gvKeyLastServerDate = prefix + "LastServerDate";// 建立日期 Key
+   g_gvKeyDailyHalted    = prefix + "DailyHalted";   // 建立熔斷狀態 Key
+
+   g_trade.SetExpertMagicNumber(InpMagicMain); // 設定預設 Magic Number
+   g_trade.SetTypeFilling(GetValidFillingMode());  // 設定成交填單模式 (同步最終版 GetValidFillingMode)
+
+   g_hMA4H  = iMA(_Symbol, PERIOD_H4, InpMA4H_Period, 0, MODE_SMA, PRICE_CLOSE); // 建立 4H SMA 指標 (同步最終版參數)
+   g_hATR4H = iATR(_Symbol, PERIOD_H4, InpATR4H_Period);                         // 建立 4H ATR 指標 (同步最終版參數)
+   g_hMA50D = iMA(_Symbol, PERIOD_D1, InpMA50_Period, 0, MODE_SMA, PRICE_CLOSE); // 建立日線 50SMA 指標
+   g_hMA20D = iMA(_Symbol, PERIOD_D1, InpMA20_Period, 0, MODE_SMA, PRICE_CLOSE); // 建立日線 20SMA 指標
+   g_hMA60D = iMA(_Symbol, PERIOD_D1, InpMA60_Period, 0, MODE_SMA, PRICE_CLOSE); // 建立日線 60SMA 指標
+
+   string dxySym = GetValidDXYSymbol(); // 取得有效 DXY 代號 (同步最終版)
+   if(!SymbolSelect(dxySym, true)) // 若無法加入
+   { // 條件開頭
+      PrintFormat("⚠️ 警告：無法將 %s 加入 Market Watch", dxySym); // 印出警告
+   } // 條件結束
+
+   LoadPersistentState(); // 載入 EA 歷史狀態
+   UpdateDailyFilters();  // 更新日線過濾器
+   CheckAndResetDailySOD(); // 初始化 FTMO 每日風控基準
+   ProcessNew4HBar(); // 開機自動補單與極速訊號判定 (同步最終版 L147)
+
+   PrintFormat("🚀 Gold 4H 30MA FTMO 版 EA 初始化成功！[MaxDailyLoss=%.1f%%, SOD_Baseline=%.2f]", InpMaxDailyLossPct, g_SOD_Baseline); // 印出日誌
+   return(INIT_SUCCEEDED); // 回傳初始化成功
+} // 函數結束
+
+//+------------------------------------------------------------------+
+//| Expert deinitialization function                                 |
+//+------------------------------------------------------------------+
+void OnDeinit(const int reason) // EA 解除初始化函數
+{ // 函數開頭
+   SavePersistentState(); // 保存當前狀態
+   if(g_hMA50D != INVALID_HANDLE) IndicatorRelease(g_hMA50D); // 釋放 50SMA 句柄
+   if(g_hMA20D != INVALID_HANDLE) IndicatorRelease(g_hMA20D); // 釋放 20SMA 句柄
+   if(g_hMA60D != INVALID_HANDLE) IndicatorRelease(g_hMA60D); // 釋放 60SMA 句柄
+   if(g_hMA4H  != INVALID_HANDLE) IndicatorRelease(g_hMA4H);  // 釋放 4H MA 句柄
+   if(g_hATR4H != INVALID_HANDLE) IndicatorRelease(g_hATR4H); // 釋放 4H ATR 句柄
+   Comment(""); // 清空圖表 HUD 儀表板
+   PrintFormat("👋 EA 已終止執行 (原因碼=%d)，狀態已自動保存。", reason); // 印出日誌 (同步最終版)
+} // 函數結束
+
+//+------------------------------------------------------------------+
+//| Expert tick function                                             |
+//+------------------------------------------------------------------+
+//+------------------------------------------------------------------+
+//| 更新圖表即時 HUD 儀表板 (UpdateChartDashboard)                     |
+//+------------------------------------------------------------------+
+void UpdateChartDashboard() // 更新圖表 HUD 儀表板
+{ // 函數開頭
+   double a1 = 0, a5 = 0, a10 = 0; // Alpha 變數
+   CalculateAlpha(a1, a5, a10); // 計算最新 Alpha 動能
+   
+   double curATR = 16.0; // 預設安全 ATR 值
+   double atrArr[1]; // 快取陣列
+   if(g_hATR4H != INVALID_HANDLE && CopyBuffer(g_hATR4H, 0, 1, 1, atrArr) > 0) curATR = atrArr[0]; // 讀取 4H 14ATR
+   
+   double atr_safe = MathMax(curATR, 4.0); // 安全 ATR 防除零
+   double volScale = InpBaselineATR / atr_safe; // 波動度調制係數
+   string volRisk = "🟢 波動平穩 (加碼擴張)"; // 波動狀態評語
+   if(curATR > 22.0) volRisk = "🔴 高波劇烈 (主動縮手防禦)"; // 高波警示
+   else if(curATR > 16.0) volRisk = "🟡 波動中等 (標準動態調制)"; // 中波提示
+   
+   double currentEquity = AccountInfoDouble(ACCOUNT_EQUITY); // 當前帳戶淨值
+   double floatingLoss = currentEquity - g_SOD_Baseline; // 今日浮動損益金額
+   double dailyLossLimit = g_SOD_Baseline * (InpMaxDailyLossPct / 100.0); // 4.5% 日內熔斷金額死線
+   double buffer = dailyLossLimit + floatingLoss; // 離熔斷剩餘安全緩衝額度
+   
+   ulong mainTicket = 0, pyrTicket = 0; // 持倉票號變數
+   CountPositionsByEA(mainTicket, pyrTicket); // 統計持倉部位
+   
+   string mainInfo = "無持倉 (Flat)"; // 主單狀態文字
+   if(mainTicket > 0 && PositionSelectByTicket(mainTicket)) // 若主部位存在
+   { // 條件開頭
+      string pType = (PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY) ? "BUY 多單" : "SELL 空單"; // 多空判定
+      mainInfo = StringFormat("[%s] 手數: %.2f | 進場: %.2f | 停損: %.2f", pType, PositionGetDouble(POSITION_VOLUME), PositionGetDouble(POSITION_PRICE_OPEN), g_MainStopPrice); // 格式化文字
+   } // 條件結束
+   
+   string pyrInfo = "無加碼 (None)"; // 加碼單狀態文字
+   if(pyrTicket > 0 && PositionSelectByTicket(pyrTicket)) // 若加碼單存在
+   { // 條件開頭
+      string pType = (PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY) ? "BUY 加多" : "SELL 加空"; // 多空判定
+      pyrInfo = StringFormat("[%s] 手數: %.2f (%.2fx) | 進場: %.2f | 停損: %.2f", pType, PositionGetDouble(POSITION_VOLUME), PositionGetDouble(POSITION_VOLUME)/InpLotSize, PositionGetDouble(POSITION_PRICE_OPEN), g_PyramidStopPrice); // 格式化文字
+   } // 條件結束
+
+   string hud = ""; // 初始化儀表板字串
+   hud += "══════════════════════════════════════════════════════════════════ // 拼接儀表板字串
+"; // 分隔線
+   hud += " ⚡ XAUUSD 4H 30MA 51Bitquant 波動度自適應調倉 EA (FTMO 版) // 拼接儀表板字串
+"; // 系統標題
+   hud += "══════════════════════════════════════════════════════════════════ // 拼接儀表板字串
+"; // 分隔線
+   hud += StringFormat(" 📈 大趨勢體制 (Regime 50SMA): %s // 拼接儀表板字串
+", g_RegimeBull ? "🟢 牛市多頭 (Long Only)" : "🔴 熊市空頭 (Short Only)"); // 體制狀態
+   hud += StringFormat(" ⚡ 4H 14ATR 波動度: %.2f 點 (基準: %.1f 點) | %s // 拼接儀表板字串
+", curATR, InpBaselineATR, volRisk); // 波動度狀態
+   hud += StringFormat(" 🎯 51Bitquant 當前加碼乘數: %.2fx (範圍: %.1fx ~ %.1fx) // 拼接儀表板字串
+", MathMin(InpMaxPyrMult, MathMax(InpMinPyrMult, InpPyramidBoostMultiplier * volScale)), InpMinPyrMult, InpMaxPyrMult); // 手數乘數
+   hud += StringFormat(" 🌐 Alpha 跨市場動能: 1D: %+.2f%% | 5D: %+.2f%% | 10D: %+.2f%% // 拼接儀表板字串
+", a1 * 100.0, a5 * 100.0, a10 * 100.0); // Alpha 動能
+   hud += "────────────────────────────────────────────────────────────────── // 拼接儀表板字串
+"; // 分隔線
+   hud += StringFormat(" 🛡️ FTMO 每日風控 (4.5%%): SOD基準=$%.2f | 當日浮動=%+$.2f // 拼接儀表板字串
+", g_SOD_Baseline, floatingLoss); // 風控基準
+   hud += StringFormat(" 🚨 離 4.5%% 熔斷死線剩餘緩衝: $%.2f (%s) // 拼接儀表板字串
+", buffer, g_DailyHalted ? "🔴 今日已熔斷停止交易" : "🟢 運行安全正常"); // 緩衝額度
+   hud += "────────────────────────────────────────────────────────────────── // 拼接儀表板字串
+"; // 分隔線
+   hud += StringFormat(" 💼 主持倉部位: %s // 拼接儀表板字串
+", mainInfo); // 主部位資訊
+   hud += StringFormat(" ➕ 加碼持倉倉: %s // 拼接儀表板字串
+", pyrInfo); // 加碼部位資訊
+   hud += "══════════════════════════════════════════════════════════════════ // 拼接儀表板字串
+"; // 結束線
+   Comment(hud); // 輸出至圖表左上角
+} // 函數結束
+
+void OnTick() // 每次 Tick 觸發函數
+{ // 函數開頭
+   UpdateChartDashboard(); // 即時更新圖表 HUD 儀表板
+   CheckAndResetDailySOD(); // 檢查 FTMO 每日風控熔斷死線
+   if(g_DailyHalted) return; // 若已熔斷則不執行交易 logic
+
+   datetime currentDailyTime = iTime(_Symbol, PERIOD_D1, 0); // 取得當前日線時間 (與最終版同步)
+   if(currentDailyTime != g_LastBarDaily || !g_DailyReady) // 若跳新日線或過濾器未就緒
+   { // 條件開頭
+      g_LastBarDaily = currentDailyTime; // 更新日線時間紀錄
+      UpdateDailyFilters(); // 即時更新日線過濾狀態
+   } // 條件結束
+
+   datetime triggerTime = (_Period == PERIOD_H1) ? iTime(_Symbol, PERIOD_H1, 0) : iTime(_Symbol, PERIOD_H4, 0); // 取得當前開盤時間 (與最終版同步)
+   if(triggerTime != g_LastBar4H) // 若跳新 K 線
+   { // 條件開頭
+      bool isTrigger = (_Period == PERIOD_H1) ? IsNewUTC4HBar(triggerTime) : true; // 依 UTC +0h 動態夏令時間點位觸發
+      if(isTrigger) // 滿足觸發條件
+      { // 條件開頭
+         g_LastBar4H = triggerTime; // 更新 4H 時間紀錄
+         ProcessNew4HBar();            // 執行 4H 交易邏輯
+         SavePersistentState();        // 保存狀態
+      } // 條件結束
+   } // 條件結束
+} // 函數結束

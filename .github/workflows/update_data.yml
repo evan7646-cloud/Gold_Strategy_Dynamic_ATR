@@ -1,0 +1,58 @@
+name: ⚡ Update 51Bitquant Dynamic ATR Strategy Data  # 工作流名稱
+
+on:
+  schedule:
+    # 📌 台北時間 (UTC+8) 平日 4H 週期更新對照 (對應 UTC 02:00, 06:00, 10:00, 14:00, 18:00, 22:00)：
+    - cron: '0 2,6,10,14,18 * * 1-5'  # 盤中定時排程
+    - cron: '0 22 * * 0-4'  # 早盤開盤排程
+
+  workflow_dispatch:  # 允許手動從 GitHub Actions 介面觸發
+
+jobs:
+  update-data:
+    runs-on: ubuntu-latest  # 使用 Ubuntu 執行環境
+    permissions:
+      contents: write  # 賦予 GITHUB_TOKEN 推送與寫入權限
+    timeout-minutes: 30  # 最長執行 30 分鐘
+
+    steps:
+      - name: ⬇️ Checkout repository  # 拉取最新程式碼
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}  # 使用自動 Token
+
+      - name: 🐍 Set up Python 3.11  # 安裝 Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'  # 快取套件
+
+      - name: 📦 Install dependencies  # 安裝依賴庫
+        run: pip install -r requirements.txt  # 安裝 requirements.txt
+
+      - name: 🔄 Run strategy update  # 執行自適應策略回測與資料更新
+        run: python gold_adaptive_strategy.py  # 抓取最新資料並更新 strategy_results.json
+        env:
+          PYTHONUNBUFFERED: '1'  # 即時輸出 log
+
+      - name: 📊 Check if data changed  # 檢查檔案是否變更
+        id: check_changes
+        run: |
+          if [ -n "$(git status --porcelain strategy_results.json comex_gc1!_4h.csv comex_gc1!_daily.csv iceus_dxy_daily.csv)" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: 💾 Commit and push updated data  # 若有變更則自動推送
+        if: steps.check_changes.outputs.changed == 'true'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add strategy_results.json comex_gc1!_4h.csv comex_gc1!_daily.csv iceus_dxy_daily.csv backtest_equity_curve_adaptive.png all_trades_detail_adaptive.csv
+          git commit -m "🤖 Auto-update: 51Bitquant ATR Strategy Data $(date -u +'%Y-%m-%d %H:%M UTC')"
+          git push
+
+      - name: ✅ No changes detected  # 無變更提示
+        if: steps.check_changes.outputs.changed == 'false'
+        run: echo "資料無更新，跳過 commit。"

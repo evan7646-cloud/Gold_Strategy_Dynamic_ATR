@@ -1,0 +1,634 @@
+/* ========================================================================== */ /* 檔案開頭分隔註釋 */
+/* 全域與基礎樣式設定 (Global Styles & Design Tokens)                           */ /* 樣式區塊標題 */
+/* ========================================================================== */ /* 分隔註釋 */
+
+:root { /* 定義 CSS 全域變數 */
+    --bg-primary: #07090e; /* 主背景暗黑色 */
+    --bg-secondary: #0f131c; /* 次級區塊背景色 */
+    --bg-glass: rgba(16, 22, 34, 0.72); /* 玻璃擬態半透明背景 */
+    --border-glass: rgba(255, 255, 255, 0.08); /* 玻璃邊框柔光白 */
+    --border-glass-hover: rgba(255, 255, 255, 0.18); /* 懸停邊框高亮 */
+    --accent-gold: #ffd54f; /* 黃金高光金黃色 */
+    --accent-green: #00e676; /* 獲利與多頭翡翠綠 */
+    --accent-red: #ff3d71; /* 虧損與空頭珊瑚紅 */
+    --accent-cyan: #00e5ff; /* 波動度與手數霓虹青 */
+    --accent-purple: #b388ff; /* 趨勢指標魅惑紫 */
+    --accent-orange: #ff9100; /* 加碼與警告琥珀橘 */
+    --text-primary: #f0f3f8; /* 主要文字白色 */
+    --text-secondary: #8c9ba5; /* 次要文字藍灰 */
+    --text-muted: #536270; /* 弱化文字暗灰 */
+    --font-main: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif; /* 現代主字型 */
+    --font-mono: 'JetBrains Mono', 'Fira Code', monospace; /* 數據等寬字型 */
+    --radius-sm: 8px; /* 小圓角 */
+    --radius-md: 14px; /* 中圓角 */
+    --radius-lg: 20px; /* 大圓角 */
+} /* 全域變數結束 */
+
+* { /* 針對所有元素進行盒模型重設 */
+    box-sizing: border-box; /* 統一邊框與內距計入寬度 */
+    margin: 0; /* 清空外邊距 */
+    padding: 0; /* 清空內邊距 */
+} /* 盒模型重設結束 */
+
+body { /* 網頁主體樣式 */
+    font-family: var(--font-main); /* 套用主字型 */
+    background-color: var(--bg-primary); /* 背景色 */
+    background-image: radial-gradient(circle at 15% 10%, rgba(255, 213, 79, 0.03) 0%, transparent 40%), radial-gradient(circle at 85% 60%, rgba(0, 229, 255, 0.03) 0%, transparent 45%); /* 柔和科技微光背景 */
+    color: var(--text-primary); /* 文字顏色 */
+    line-height: 1.5; /* 行高 */
+    padding: 24px; /* 頁面邊界內距 */
+    min-height: 100vh; /* 確保佔滿全螢幕高度 */
+} /* 網頁主體結束 */
+
+.dashboard-container { /* 儀表板最外層全寬容器 */
+    max-width: 1680px; /* 最大寬度擴增 */
+    margin: 0 auto; /* 水平置中 */
+    display: flex; /* 彈性盒模型排版 */
+    flex-direction: column; /* 垂直縱向堆疊 */
+    gap: 22px; /* 各區塊垂直間距 */
+} /* 最外層容器結束 */
+
+/* ========================================================================== */ /* 玻璃擬態面板元件 */
+/* 玻璃擬態與面板 (Glassmorphism & Panels)                                     */ /* 區塊註釋 */
+/* ========================================================================== */ /* 分隔註釋 */
+
+.glass-panel { /* 玻璃擬態大面板樣式 */
+    background: var(--bg-glass); /* 半透明背景 */
+    border: 1px solid var(--border-glass); /* 微光邊框 */
+    border-radius: var(--radius-lg); /* 大圓角邊框 */
+    padding: 22px 24px; /* 內部間距 */
+    backdrop-filter: blur(16px); /* 景深磨砂玻璃模糊 */
+    -webkit-backdrop-filter: blur(16px); /* Safari 景深支援 */
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35); /* 沉浸式陰影 */
+} /* 玻璃擬態大面板結束 */
+
+.glass-card { /* 卡片型玻璃擬態容器 */
+    background: rgba(15, 20, 31, 0.75); /* 卡片半透明底色 */
+    border: 1px solid var(--border-glass); /* 邊框線條 */
+    border-radius: var(--radius-md); /* 中圓角 */
+    padding: 20px; /* 卡片內距 */
+    backdrop-filter: blur(14px); /* 磨砂玻璃效果 */
+    transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.25s; /* 平滑懸停轉場 */
+} /* 卡片樣式結束 */
+
+.glass-card:hover { /* 卡片懸停動態效果 */
+    transform: translateY(-4px); /* 向上微浮動 */
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.45); /* 加深投影 */
+    border-color: var(--border-glass-hover); /* 邊框加亮 */
+} /* 懸停效果結束 */
+
+/* ========================================================================== */ /* 頂部導航標題列 */
+/* 頂部標題與控制列 (Header Bar & Switchers)                                  */ /* 區塊註釋 */
+/* ========================================================================== */ /* 分隔註釋 */
+
+.header-bar { /* 頂部標題列排版 */
+    display: flex; /* 彈性盒模型排版 */
+    justify-content: space-between; /* 左右分散對齊 */
+    align-items: center; /* 垂直置中 */
+    flex-wrap: wrap; /* 支援螢幕過窄時換行 */
+    gap: 16px; /* 元素間距 */
+} /* 頂部標題列結束 */
+
+.logo-title { /* 標題與圖示外層 */
+    display: flex; /* 水平排列 */
+    align-items: center; /* 置中 */
+    gap: 18px; /* 間距 */
+} /* 標題容器結束 */
+
+.gold-icon-container { /* 圖示背景光暈容器 */
+    width: 52px; /* 寬度 */
+    height: 52px; /* 高度 */
+    border-radius: 14px; /* 圓角 */
+    background: linear-gradient(135deg, rgba(255, 213, 79, 0.2), rgba(0, 229, 255, 0.1)); /* 漸層底色 */
+    border: 1px solid rgba(255, 213, 79, 0.35); /* 金光邊框 */
+    display: flex; /* 置中排版 */
+    align-items: center; /* 置中 */
+    justify-content: center; /* 置中 */
+    box-shadow: 0 0 20px rgba(255, 213, 79, 0.2); /* 金色發光效果 */
+} /* 圖示容器結束 */
+
+.gold-icon { /* 閃電圖示本體 */
+    font-size: 28px; /* 圖示大小 */
+    filter: drop-shadow(0 0 6px rgba(255, 213, 79, 0.8)); /* 投射光影 */
+} /* 圖示結束 */
+
+.badge-tag-row { /* 標題上方標籤橫列 */
+    display: flex; /* 水平排列 */
+    gap: 8px; /* 間距 */
+    margin-bottom: 4px; /* 與主標題間距 */
+} /* 標籤列結束 */
+
+.tag-pill { /* 標籤藥丸基礎樣式 */
+    font-size: 11px; /* 小字體 */
+    font-family: var(--font-mono); /* 等寬字型 */
+    font-weight: 700; /* 粗體 */
+    padding: 3px 10px; /* 內距 */
+    border-radius: 20px; /* 全圓角膠囊形狀 */
+    text-transform: uppercase; /* 大寫轉換 */
+} /* 標籤樣式結束 */
+
+.tag-primary { /* 核心算法標籤主題 */
+    background: rgba(0, 229, 255, 0.15); /* 霓虹青半透明底 */
+    border: 1px solid var(--accent-cyan); /* 青色邊框 */
+    color: var(--accent-cyan); /* 青色字體 */
+} /* 主算法標籤結束 */
+
+.tag-ftmo { /* FTMO 風控標籤主題 */
+    background: rgba(0, 230, 118, 0.15); /* 綠色底 */
+    border: 1px solid var(--accent-green); /* 綠色邊框 */
+    color: var(--accent-green); /* 綠色字體 */
+} /* FTMO 標籤結束 */
+
+.tag-offset { /* 時區標籤主題 */
+    background: rgba(255, 213, 79, 0.15); /* 金色底 */
+    border: 1px solid var(--accent-gold); /* 金色邊框 */
+    color: var(--accent-gold); /* 金色字體 */
+} /* 時區標籤結束 */
+
+.header-bar h1 { /* 主標題字型 */
+    font-size: 23px; /* 標題字號 */
+    font-weight: 800; /* 超粗體 */
+    color: #ffffff; /* 純白色 */
+    letter-spacing: -0.3px; /* 緊湊字距 */
+} /* 主標題結束 */
+
+.subtitle { /* 副標題說明文字 */
+    font-size: 13px; /* 字號 */
+    color: var(--text-secondary); /* 灰色 */
+    margin-top: 2px; /* 微距 */
+} /* 副標題結束 */
+
+.header-right-controls { /* 頂部右側開關區塊 */
+    display: flex; /* 水平排列 */
+    align-items: center; /* 置中 */
+    gap: 14px; /* 間距 */
+    flex-wrap: wrap; /* 支援小螢幕換行 */
+} /* 右側區塊結束 */
+
+.dataset-switcher { /* 數據集切換容器 */
+    display: flex; /* 排列 */
+    background: rgba(10, 14, 22, 0.9); /* 底色 */
+    padding: 4px; /* 內距 */
+    border-radius: 12px; /* 圓角 */
+    border: 1px solid var(--border-glass); /* 邊框 */
+    gap: 4px; /* 按鈕間隔 */
+} /* 切換容器結束 */
+
+.btn-toggle { /* 切換按鈕基本樣式 */
+    background: transparent; /* 透明底 */
+    border: none; /* 無邊框 */
+    color: var(--text-secondary); /* 次文字顏色 */
+    padding: 8px 14px; /* 內距 */
+    border-radius: 8px; /* 圓角 */
+    font-size: 12px; /* 字級 */
+    font-family: var(--font-main); /* 字型 */
+    font-weight: 600; /* 粗體 */
+    cursor: pointer; /* 手勢標籤 */
+    transition: all 0.2s; /* 動畫過渡 */
+} /* 切換按鈕結束 */
+
+.btn-toggle:hover { /* 切換按鈕懸停 */
+    color: #ffffff; /* 亮白色 */
+    background: rgba(255, 255, 255, 0.05); /* 輕微提亮 */
+} /* 懸停結束 */
+
+.btn-toggle.active { /* 啟動狀態按鈕 */
+    background: linear-gradient(135deg, rgba(0, 229, 255, 0.25), rgba(0, 230, 118, 0.25)); /* 漸層青綠底 */
+    border: 1px solid rgba(0, 229, 255, 0.6); /* 亮青邊框 */
+    color: #ffffff; /* 亮白文字 */
+    box-shadow: 0 0 12px rgba(0, 229, 255, 0.3); /* 霓虹光暈 */
+} /* 啟動按鈕結束 */
+
+.system-status-pill { /* 系統狀態指示藥丸 */
+    display: flex; /* 水平排列 */
+    align-items: center; /* 置中 */
+    gap: 10px; /* 間距 */
+    background: rgba(0, 230, 118, 0.12); /* 綠色光底 */
+    border: 1px solid rgba(0, 230, 118, 0.35); /* 綠邊框 */
+    padding: 9px 18px; /* 內距 */
+    border-radius: 30px; /* 全圓角 */
+    font-size: 13px; /* 字體 */
+    color: var(--accent-green); /* 綠文字 */
+    font-weight: 600; /* 粗體 */
+    font-family: var(--font-mono); /* 等寬字型 */
+} /* 狀態藥丸結束 */
+
+.pulse-dot { /* 呼吸燈發光圓點 */
+    width: 8px; /* 寬度 */
+    height: 8px; /* 高度 */
+    background-color: var(--accent-green); /* 綠色 */
+    border-radius: 50%; /* 圓形 */
+    box-shadow: 0 0 10px var(--accent-green); /* 綠光 */
+    animation: pulse-anim 2s infinite ease-in-out; /* 呼吸燈動畫 */
+} /* 圓點結束 */
+
+@keyframes pulse-anim { /* 呼吸燈關鍵幀動畫 */
+    0% { transform: scale(0.9); opacity: 1; box-shadow: 0 0 6px var(--accent-green); } /* 起點 */
+    50% { transform: scale(1.35); opacity: 0.4; box-shadow: 0 0 14px var(--accent-green); } /* 頂點 */
+    100% { transform: scale(0.9); opacity: 1; box-shadow: 0 0 6px var(--accent-green); } /* 回到原點 */
+} /* 動畫結束 */
+
+/* ========================================================================== */ /* 關鍵指標卡片網格 */
+/* 統計指標卡片網格 (Metrics Cards Grid)                                      */ /* 區塊註釋 */
+/* ========================================================================== */ /* 分隔註釋 */
+
+.cards-grid { /* 卡片網格排版系統 */
+    display: grid; /* 啟用 CSS Grid */
+    grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); /* 自動適應欄位 */
+    gap: 18px; /* 欄位間距 */
+} /* 網格系統結束 */
+
+.card-header-line { /* 卡片頂部列排版 */
+    display: flex; /* 水平排列 */
+    justify-content: space-between; /* 兩端對齊 */
+    align-items: center; /* 垂直置中 */
+    margin-bottom: 10px; /* 與大數值之間距 */
+} /* 頂部列結束 */
+
+.card-title { /* 卡片小標題文字 */
+    font-size: 13px; /* 字級 */
+    color: var(--text-secondary); /* 藍灰文字 */
+    font-weight: 600; /* 粗體 */
+    letter-spacing: 0.2px; /* 字距 */
+} /* 小標題結束 */
+
+.badge-mini { /* 迷你小徽章樣式 */
+    font-size: 10px; /* 超小字級 */
+    font-family: var(--font-mono); /* 等寬字型 */
+    font-weight: 700; /* 粗體 */
+    padding: 2px 7px; /* 內距 */
+    border-radius: 4px; /* 圓角 */
+    background: rgba(255, 255, 255, 0.08); /* 預設背景 */
+    color: var(--text-secondary); /* 預設文字 */
+} /* 迷你徽章結束 */
+
+.badge-green { background: rgba(0, 230, 118, 0.2); color: var(--accent-green); border: 1px solid rgba(0, 230, 118, 0.4); } /* 綠色迷你徽章 */
+.badge-gold { background: rgba(255, 213, 79, 0.2); color: var(--accent-gold); border: 1px solid rgba(255, 213, 79, 0.4); } /* 金色迷你徽章 */
+.badge-cyan { background: rgba(0, 229, 255, 0.2); color: var(--accent-cyan); border: 1px solid rgba(0, 229, 255, 0.4); } /* 青色迷你徽章 */
+.badge-ftmo-active { background: rgba(179, 136, 255, 0.2); color: var(--accent-purple); border: 1px solid rgba(179, 136, 255, 0.4); } /* 紫色風控徽章 */
+
+.card-main-val { /* 卡片主要數值顯示 */
+    font-size: 26px; /* 大字號 */
+    font-weight: 800; /* 粗體 */
+    color: #ffffff; /* 純白色 */
+    margin-bottom: 12px; /* 與細節列間距 */
+    font-family: var(--font-mono); /* 等寬字體 */
+    letter-spacing: -0.5px; /* 字距 */
+} /* 主數值結束 */
+
+.positive-val { color: var(--accent-green); text-shadow: 0 0 12px rgba(0, 230, 118, 0.35); } /* 正值綠光文字 */
+.negative-val { color: var(--accent-red); text-shadow: 0 0 12px rgba(255, 61, 113, 0.35); } /* 負值紅光文字 */
+.defense-val { color: var(--accent-cyan); text-shadow: 0 0 12px rgba(0, 229, 255, 0.35); } /* 防禦指標青光文字 */
+
+/* 強調卡片特殊背景漸層 */
+.highlight-defense-card { /* 防禦卡片特殊樣式 */
+    background: linear-gradient(135deg, rgba(16, 28, 48, 0.9), rgba(11, 20, 36, 0.9)); /* 深藍深青漸層 */
+    border: 1px solid rgba(0, 229, 255, 0.35); /* 青色光暈邊框 */
+    box-shadow: 0 8px 24px rgba(0, 229, 255, 0.1); /* 青色微光陰影 */
+} /* 防禦卡片結束 */
+
+.highlight-pnl-card { /* 獲利卡片特殊樣式 */
+    background: linear-gradient(135deg, rgba(32, 28, 16, 0.9), rgba(18, 16, 10, 0.9)); /* 暗金漸層 */
+    border: 1px solid rgba(255, 213, 79, 0.35); /* 金色邊框 */
+    box-shadow: 0 8px 24px rgba(255, 213, 79, 0.1); /* 金光陰影 */
+} /* 獲利卡片結束 */
+
+.card-detail { /* 卡片底部細節區塊 */
+    display: flex; /* 垂直排版 */
+    flex-direction: column; /* 垂直方向 */
+    gap: 7px; /* 列間距 */
+    font-size: 13px; /* 字級 */
+    color: var(--text-secondary); /* 顏色 */
+    border-top: 1px solid rgba(255, 255, 255, 0.06); /* 上方細分隔線 */
+    padding-top: 10px; /* 上方內距 */
+} /* 細節區塊結束 */
+
+.detail-row { /* 細節每一橫列排版 */
+    display: flex; /* 水平排列 */
+    justify-content: space-between; /* 兩端分開 */
+    align-items: center; /* 垂直置中 */
+} /* 橫列結束 */
+
+.detail-row strong { /* 細節數據值強調 */
+    color: var(--text-primary); /* 白色 */
+    font-family: var(--font-mono); /* 等寬字 */
+    font-weight: 600; /* 半粗 */
+} /* 強調數據結束 */
+
+.highlight-green { color: var(--accent-green) !important; font-weight: 700 !important; } /* 強制綠色強調 */
+
+/* ========================================================================== */ /* 圖表面板與工具列 */
+/* 圖表面板樣式 (Chart Sections & Controls)                                   */ /* 區塊註釋 */
+/* ========================================================================== */ /* 分隔註釋 */
+
+.chart-section { /* 圖表面板基本間距 */
+    display: flex; /* 排版 */
+    flex-direction: column; /* 垂直排列 */
+} /* 圖表面板結束 */
+
+.panel-header { /* 面板頂部標題與工具列容器 */
+    display: flex; /* 水平排列 */
+    justify-content: space-between; /* 兩端分散 */
+    align-items: center; /* 垂直置中 */
+    margin-bottom: 16px; /* 與圖表間距 */
+    flex-wrap: wrap; /* 螢幕窄時換行 */
+    gap: 12px; /* 間隔 */
+} /* 面板標題列結束 */
+
+.panel-title-group { /* 標題與說明群組 */
+    display: flex; /* 垂直排列 */
+    flex-direction: column; /* 垂直方向 */
+    gap: 3px; /* 間距 */
+} /* 標題群組結束 */
+
+.panel-header h2 { /* 面板大標題字型 */
+    font-size: 18px; /* 字號 */
+    font-weight: 700; /* 粗體 */
+    color: #ffffff; /* 亮白 */
+} /* 大標題結束 */
+
+.panel-subinfo { /* 面板下方操作輔助說明 */
+    font-size: 12px; /* 小字 */
+    color: var(--text-muted); /* 弱化灰藍色 */
+} /* 說明文字結束 */
+
+.chart-controls { /* 圖表控制項容器 */
+    display: flex; /* 水平排列 */
+    align-items: center; /* 置中 */
+    gap: 8px; /* 間距 */
+    flex-wrap: wrap; /* 支援換行 */
+} /* 工具列結束 */
+
+.btn-action-sm { /* 小號動作按鈕樣式 */
+    background: rgba(0, 229, 255, 0.12); /* 青色微光背景 */
+    border: 1px solid rgba(0, 229, 255, 0.4); /* 青色邊框 */
+    color: var(--accent-cyan); /* 青色字體 */
+    padding: 5px 12px; /* 內距 */
+    border-radius: 6px; /* 圓角 */
+    font-size: 12px; /* 字號 */
+    font-weight: 600; /* 粗體 */
+    cursor: pointer; /* 手勢 */
+    transition: all 0.2s; /* 動態轉場 */
+} /* 小按鈕結束 */
+
+.btn-action-sm:hover { /* 小按鈕懸停 */
+    background: var(--accent-cyan); /* 填滿青色 */
+    color: #000000; /* 黑色字體 */
+    box-shadow: 0 0 12px rgba(0, 229, 255, 0.5); /* 霓虹光暈 */
+} /* 懸停結束 */
+
+.legend-badge { /* 圖例標籤樣式 */
+    font-size: 11px; /* 小字級 */
+    font-family: var(--font-mono); /* 等寬字型 */
+    font-weight: 600; /* 粗體 */
+    padding: 4px 9px; /* 內距 */
+    border-radius: 6px; /* 圓角 */
+} /* 圖例樣式結束 */
+
+.badge-30ma { background: rgba(0, 229, 255, 0.15); color: var(--accent-cyan); border: 1px solid var(--accent-cyan); } /* 30MA 青色標籤 */
+.badge-50ma { background: rgba(179, 136, 255, 0.15); color: var(--accent-purple); border: 1px solid var(--accent-purple); } /* 50MA 紫色標籤 */
+.badge-20ma { background: rgba(255, 145, 0, 0.15); color: var(--accent-orange); border: 1px solid var(--accent-orange); } /* 20MA 橘色標籤 */
+.badge-60ma { background: rgba(255, 61, 113, 0.15); color: var(--accent-red); border: 1px solid var(--accent-red); } /* 60MA 紅色標籤 */
+.badge-dxy20 { background: rgba(0, 230, 118, 0.15); color: var(--accent-green); border: 1px solid var(--accent-green); } /* DXY 20MA 綠色標籤 */
+.badge-dxy60 { background: rgba(255, 61, 113, 0.15); color: var(--accent-red); border: 1px solid var(--accent-red); } /* DXY 60MA 紅色標籤 */
+
+.plotly-chart-container { /* 主圖表容器尺寸 */
+    width: 100%; /* 全寬 */
+    height: 560px; /* 主圖表高度 */
+    border-radius: var(--radius-sm); /* 圓角 */
+    overflow: hidden; /* 隱藏溢出 */
+} /* 主圖表容器結束 */
+
+.plotly-chart-container-medium { /* 中型圖表容器尺寸 */
+    width: 100%; /* 全寬 */
+    height: 400px; /* 中型高度 */
+    border-radius: var(--radius-sm); /* 圓角 */
+    overflow: hidden; /* 隱藏溢出 */
+} /* 中型圖表容器結束 */
+
+.dual-chart-grid { /* 雙子圖並列網格 */
+    display: grid; /* Grid 排版 */
+    grid-template-columns: repeat(auto-fit, minmax(560px, 1fr)); /* 自適應左右兩欄 */
+    gap: 20px; /* 間隔 */
+} /* 雙子圖結束 */
+
+/* ========================================================================== */ /* 歷史交易明細表格與篩選 */
+/* 歷史交易記錄表格 (Interactive Trades Table)                                */ /* 區塊註釋 */
+/* ========================================================================== */ /* 分隔註釋 */
+
+.table-section { /* 表格面板區塊 */
+    display: flex; /* 排版 */
+    flex-direction: column; /* 垂直 */
+} /* 表格區塊結束 */
+
+.trades-count-pill { /* 交易筆數統計徽章 */
+    background: rgba(255, 213, 79, 0.15); /* 金色底 */
+    border: 1px solid rgba(255, 213, 79, 0.4); /* 金色邊框 */
+    color: var(--accent-gold); /* 金色字體 */
+    font-size: 12px; /* 字級 */
+    font-family: var(--font-mono); /* 等寬字 */
+    font-weight: 700; /* 粗體 */
+    padding: 4px 12px; /* 內距 */
+    border-radius: 20px; /* 膠囊圓角 */
+} /* 筆數徽章結束 */
+
+.table-toolbar { /* 表格工具列排版 */
+    display: flex; /* 水平排列 */
+    align-items: center; /* 置中 */
+    justify-content: space-between; /* 兩端對齊 */
+    gap: 14px; /* 間距 */
+    flex-wrap: wrap; /* 支援小螢幕換行 */
+    width: 100%; /* 全寬 */
+    margin-top: 6px; /* 頂部間距 */
+} /* 工具列結束 */
+
+.filter-btn-group { /* 快速篩選按鈕組 */
+    display: flex; /* 水平排列 */
+    gap: 6px; /* 間距 */
+    flex-wrap: wrap; /* 換行 */
+} /* 按鈕組結束 */
+
+.filter-btn { /* 篩選按鈕樣式 */
+    background: rgba(255, 255, 255, 0.05); /* 微光底 */
+    border: 1px solid var(--border-glass); /* 邊框 */
+    color: var(--text-secondary); /* 顏色 */
+    padding: 6px 12px; /* 內距 */
+    border-radius: 6px; /* 圓角 */
+    font-size: 12px; /* 字級 */
+    font-weight: 600; /* 粗體 */
+    cursor: pointer; /* 手勢 */
+    transition: all 0.2s; /* 轉場 */
+} /* 篩選按鈕結束 */
+
+.filter-btn:hover { /* 篩選按鈕懸停 */
+    color: #ffffff; /* 白色 */
+    background: rgba(255, 255, 255, 0.1); /* 提亮 */
+} /* 懸停結束 */
+
+.filter-btn.active { /* 篩選按鈕啟動狀態 */
+    background: rgba(0, 229, 255, 0.2); /* 青色背景 */
+    border-color: var(--accent-cyan); /* 青色邊框 */
+    color: #ffffff; /* 純白色 */
+    box-shadow: 0 0 10px rgba(0, 229, 255, 0.3); /* 光暈 */
+} /* 啟動狀態結束 */
+
+.search-box-wrapper { /* 搜尋框外層 */
+    min-width: 260px; /* 最小寬度 */
+} /* 搜尋外層結束 */
+
+.search-input { /* 搜尋輸入框 */
+    width: 100%; /* 填滿 */
+    background: rgba(10, 14, 22, 0.8); /* 深色背景 */
+    border: 1px solid var(--border-glass); /* 邊框 */
+    border-radius: 8px; /* 圓角 */
+    padding: 7px 14px; /* 內距 */
+    color: #ffffff; /* 白色文字 */
+    font-size: 13px; /* 字號 */
+    font-family: var(--font-main); /* 主字體 */
+    outline: none; /* 清除點擊邊框 */
+    transition: border-color 0.2s, box-shadow 0.2s; /* 轉場 */
+} /* 搜尋框結束 */
+
+.search-input:focus { /* 搜尋框聚焦狀態 */
+    border-color: var(--accent-cyan); /* 青色邊框 */
+    box-shadow: 0 0 10px rgba(0, 229, 255, 0.3); /* 青色光暈 */
+} /* 聚焦結束 */
+
+.table-wrapper { /* 表格滾動包裝容器 */
+    width: 100%; /* 全寬 */
+    overflow-x: auto; /* 橫向滾動 */
+    border: 1px solid var(--border-glass); /* 邊框 */
+    border-radius: var(--radius-sm); /* 圓角 */
+    margin-top: 12px; /* 頂部間距 */
+} /* 滾動包裝結束 */
+
+.data-table { /* 交易資料表格本體 */
+    width: 100%; /* 全寬 */
+    border-collapse: collapse; /* 合併邊框 */
+    text-align: left; /* 靠左對齊 */
+    font-size: 13px; /* 字級 */
+    font-family: var(--font-mono); /* 等寬字型 */
+} /* 表格本體結束 */
+
+.data-table th { /* 表頭樣式 */
+    background: rgba(20, 26, 40, 0.95); /* 深色表頭 */
+    color: var(--text-secondary); /* 藍灰字體 */
+    padding: 13px 14px; /* 內距 */
+    font-weight: 700; /* 粗體 */
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1); /* 下底線 */
+    white-space: nowrap; /* 不換行 */
+} /* 表頭結束 */
+
+.data-table td { /* 表格資料單元格 */
+    padding: 11px 14px; /* 內距 */
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04); /* 柔和底線 */
+    color: var(--text-primary); /* 白色字體 */
+    white-space: nowrap; /* 不自動換行 */
+    transition: background 0.15s; /* 背景轉場 */
+} /* 單元格結束 */
+
+.data-table tbody tr { /* 資料列 */
+    cursor: pointer; /* 點擊手勢 */
+} /* 資料列結束 */
+
+.data-table tbody tr:hover { /* 資料列懸停效果 */
+    background: rgba(0, 229, 255, 0.07); /* 青色懸停提亮 */
+} /* 懸停結束 */
+
+.data-table tbody tr.active-row { /* 點擊選取中的資料列高亮 */
+    background: rgba(0, 230, 118, 0.15) !important; /* 綠色背景高亮 */
+    border-left: 4px solid var(--accent-green); /* 綠色左側標記條 */
+} /* 選取高亮結束 */
+
+.badge-long { background: rgba(0, 230, 118, 0.2); color: var(--accent-green); padding: 3px 8px; border-radius: 4px; font-weight: bold; } /* 多單標籤 */
+.badge-short { background: rgba(255, 61, 113, 0.2); color: var(--accent-red); padding: 3px 8px; border-radius: 4px; font-weight: bold; } /* 空單標籤 */
+.badge-pyr { background: rgba(255, 145, 0, 0.2); color: var(--accent-orange); padding: 3px 8px; border-radius: 4px; font-weight: bold; } /* 加碼單標籤 */
+.badge-main { background: rgba(0, 229, 255, 0.2); color: var(--accent-cyan); padding: 3px 8px; border-radius: 4px; } /* 主部位標籤 */
+.badge-unit { background: rgba(255, 213, 79, 0.2); color: var(--accent-gold); padding: 3px 8px; border-radius: 4px; font-weight: bold; } /* 手數倍率標籤 */
+
+.text-center { text-align: center; } /* 水平置中工具類 */
+.text-profit { color: var(--accent-green); font-weight: 700; } /* 獲利文字樣式 */
+.text-loss { color: var(--accent-red); font-weight: 700; } /* 虧損文字樣式 */
+.text-mae { color: #ffab91; font-weight: 600; } /* MAE 浮虧文字樣式 */
+
+/* 表格分頁列樣式 */
+.table-pagination-row { /* 分頁列排版 */
+    display: flex; /* 水平排列 */
+    justify-content: space-between; /* 兩端分散 */
+    align-items: center; /* 垂直置中 */
+    margin-top: 14px; /* 與表格間距 */
+    flex-wrap: wrap; /* 換行支援 */
+    gap: 12px; /* 間隔 */
+} /* 分頁列結束 */
+
+.pagination-info { /* 分頁文字資訊 */
+    font-size: 13px; /* 字級 */
+    color: var(--text-secondary); /* 顏色 */
+} /* 資訊文字結束 */
+
+.pagination-controls { /* 分頁按鈕容器 */
+    display: flex; /* 水平排列 */
+    align-items: center; /* 置中 */
+    gap: 6px; /* 按鈕間距 */
+} /* 按鈕容器結束 */
+
+.btn-page { /* 分頁按鈕樣式 */
+    background: rgba(20, 26, 40, 0.9); /* 底色 */
+    border: 1px solid var(--border-glass); /* 邊框 */
+    color: var(--text-primary); /* 文字 */
+    padding: 6px 12px; /* 內距 */
+    border-radius: 6px; /* 圓角 */
+    font-size: 12px; /* 字號 */
+    font-weight: 600; /* 粗體 */
+    cursor: pointer; /* 手勢 */
+    transition: all 0.2s; /* 轉場 */
+} /* 分頁按鈕結束 */
+
+.btn-page:hover:not(:disabled) { /* 懸停效果 */
+    background: var(--accent-cyan); /* 青色背景 */
+    color: #000000; /* 黑色文字 */
+    border-color: var(--accent-cyan); /* 邊框 */
+} /* 懸停結束 */
+
+.btn-page:disabled { /* 禁用狀態 */
+    opacity: 0.35; /* 降低透明度 */
+    cursor: not-allowed; /* 禁止手勢 */
+} /* 禁用結束 */
+
+.page-current-indicator { /* 當前頁碼指示文字 */
+    font-size: 13px; /* 字號 */
+    font-family: var(--font-mono); /* 等寬 */
+    color: var(--accent-cyan); /* 青色 */
+    font-weight: 700; /* 粗體 */
+    padding: 0 6px; /* 左右內距 */
+} /* 頁碼指示結束 */
+
+/* ========================================================================== */ /* 頁尾樣式 */
+/* 頁尾資訊區 (Footer Bar)                                                    */ /* 區塊註釋 */
+/* ========================================================================== */ /* 分隔註釋 */
+
+.footer-bar { /* 頁尾容器 */
+    text-align: center; /* 置中對齊 */
+    padding: 16px 20px; /* 內距 */
+} /* 頁尾容器結束 */
+
+.footer-content p { /* 頁尾主文字 */
+    font-size: 13px; /* 字級 */
+    color: var(--text-secondary); /* 顏色 */
+} /* 主文字結束 */
+
+.footer-sub { /* 頁尾副說明文字 */
+    font-size: 12px; /* 小字 */
+    color: var(--text-muted); /* 弱化灰字 */
+    margin-top: 4px; /* 頂距 */
+    font-family: var(--font-mono); /* 等寬字型 */
+} /* 副文字結束 */
+
+/* 響應式排版調整 */
+@media (max-width: 900px) { /* 平板與手機版型調整 */
+    body { padding: 12px; } /* 縮小內距 */
+    .header-bar h1 { font-size: 19px; } /* 縮小標題 */
+    .dual-chart-grid { grid-template-columns: 1fr; } /* 雙子圖改為單欄縱向 */
+    .plotly-chart-container { height: 440px; } /* 縮小主圖表高度 */
+    .plotly-chart-container-medium { height: 320px; } /* 縮小副圖表高度 */
+} /* 響應式結束 */

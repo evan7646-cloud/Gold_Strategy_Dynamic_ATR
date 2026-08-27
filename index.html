@@ -1,0 +1,254 @@
+<!DOCTYPE html> <!-- 宣告文件類型為 HTML5 -->
+<html lang="zh-TW"> <!-- 指定網頁語言為繁體中文 -->
+<head> <!-- 網頁標頭區塊開啟 -->
+    <meta charset="UTF-8"> <!-- 設定字元集編碼為 UTF-8 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"> <!-- 設置響應式視窗縮放比率 -->
+    <title>XAUUSD 4H 30MA 51Bitquant 波動度自適應調倉策略儀表板 (+0h Offset & FTMO)</title> <!-- 網頁分頁標題 -->
+    <!-- 引入 Google Fonts 現代暗黑字型 Outfit 與 JetBrains Mono -->
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"> <!-- 字體樣式表連結 -->
+    <!-- 引入 Plotly.js 互動繪圖庫 CDN -->
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script> <!-- Plotly 圖表繪製函式庫 -->
+    <!-- 引入自訂樣式檔 styles.css -->
+    <link rel="stylesheet" href="styles.css"> <!-- 載入 CSS 視覺與排版樣式檔 -->
+</head> <!-- 標頭區塊結束 -->
+<body> <!-- 網頁主體區塊開啟 -->
+    <div class="dashboard-container"> <!-- 儀表板全頁外層容器 -->
+        
+        <!-- 頂部導航與狀態列 -->
+        <header class="header-bar glass-panel"> <!-- 頂部導航標題列 -->
+            <div class="logo-title"> <!-- 標題與 Icon 容器 -->
+                <div class="gold-icon-container"> <!-- 發光圖示容器 -->
+                    <span class="gold-icon">⚡</span> <!-- 波動度調倉 Logo -->
+                </div> <!-- 發光容器結束 -->
+                <div> <!-- 標題文字區塊 -->
+                    <div class="badge-tag-row"> <!-- 標籤列 -->
+                        <span class="tag-pill tag-primary">51Bitquant Dynamic ATR</span> <!-- 核心算法標籤 -->
+                        <span class="tag-pill tag-ftmo">FTMO 企業風控</span> <!-- FTMO 標籤 -->
+                        <span class="tag-pill tag-offset">+0h UTC 台北時間</span> <!-- 時區標籤 -->
+                    </div> <!-- 標籤列結束 -->
+                    <h1>XAUUSD 黃金 4H 30MA 波動度自適應調倉策略</h1> <!-- 主標題 -->
+                    <p class="subtitle">動態 ATR 逆反比部位管理 × 浮動虧損驟降 61% × 頂級抗回撤卡瑪比率 7.44</p> <!-- 副標題說明 -->
+                </div> <!-- 文字區塊結束 -->
+            </div> <!-- 標題 Icon 容器結束 -->
+            
+            <div class="header-right-controls"> <!-- 頂部右側控制區 -->
+                <!-- 回測數據週期切換開關 -->
+                <div class="dataset-switcher"> <!-- 數據集切換容器 -->
+                    <button id="btn-mode-2yr" class="btn-toggle active" onclick="switchDataset('2yr')">🟢 2.1年實盤回測 (546筆)</button> <!-- 2.1年切換按鈕 -->
+                    <button id="btn-mode-4yr" class="btn-toggle" onclick="switchDataset('4yr')">🌐 4年全歷史壓力測試 (1108筆)</button> <!-- 4年切換按鈕 -->
+                </div> <!-- 切換容器結束 -->
+
+                <div class="system-status-pill"> <!-- 系統運行狀態標籤 -->
+                    <span class="pulse-dot"></span> <!-- 動態閃爍圓點 -->
+                    <span id="last-updated-text">數據載入中...</span> <!-- 即時更新時間文字 -->
+                </div> <!-- 狀態標籤結束 -->
+            </div> <!-- 頂部右側結束 -->
+        </header> <!-- 頂部標題列結束 -->
+
+        <!-- 第一區：核心關鍵績效與風控卡片網格 -->
+        <section class="cards-grid"> <!-- 統計卡片網格系統 -->
+            
+            <!-- 卡片 1：最新市場報價與大趨勢 Regime -->
+            <div class="card glass-card"> <!-- 玻璃擬態卡片容器 -->
+                <div class="card-header-line"> <!-- 卡片頂部列 -->
+                    <span class="card-title">📈 最新市場體制 (Regime)</span> <!-- 卡片小標題 -->
+                    <span class="badge-mini" id="regime-badge">50SMA 濾網</span> <!-- 迷你標籤 -->
+                </div> <!-- 頂部列結束 -->
+                <div class="card-main-val" id="regime-val">--</div> <!-- 大趨勢 Regime 數值 -->
+                <div class="card-detail"> <!-- 詳細報價資訊 -->
+                    <div class="detail-row"><span>黃金現價:</span><strong id="gold-price-val">$0.00</strong></div> <!-- 黃金現價 -->
+                    <div class="detail-row"><span>4H 30MA:</span><strong id="ma4h-val">$0.00</strong></div> <!-- 4H 30MA -->
+                    <div class="detail-row"><span>美元指數 (DXY):</span><strong id="dxy-price-val">0.00</strong></div> <!-- 美元指數現價 -->
+                </div> <!-- 詳細報價結束 -->
+            </div> <!-- 卡片 1 結束 -->
+
+            <!-- 卡片 2：51Bitquant 波動度調制狀態 -->
+            <div class="card glass-card"> <!-- 玻璃擬態卡片容器 -->
+                <div class="card-header-line"> <!-- 卡片頂部列 -->
+                    <span class="card-title">⚡ 51Bitquant 波動度調制</span> <!-- 卡片小標題 -->
+                    <span class="badge-mini badge-cyan" id="vol-scale-badge">動態調制中</span> <!-- 迷你標籤 -->
+                </div> <!-- 頂部列結束 -->
+                <div class="card-main-val" id="volatility-scale-val">1.00x</div> <!-- 當前手數調制乘數 -->
+                <div class="card-detail"> <!-- ATR 數據細節 -->
+                    <div class="detail-row"><span>當前 14ATR:</span><strong id="current-atr-val">0.00 點</strong></div> <!-- 當前 4H ATR -->
+                    <div class="detail-row"><span>基準 ATR (Baseline):</span><strong id="baseline-atr-val">16.0 點</strong></div> <!-- 基準 ATR -->
+                    <div class="detail-row"><span>調制狀態:</span><strong id="vol-risk-status" style="color: #00e676;">波動平穩 (加碼擴張)</strong></div> <!-- 波動風險狀態 -->
+                </div> <!-- 數據細節結束 -->
+            </div> <!-- 卡片 2 結束 -->
+
+            <!-- 卡片 3：🛡️ 浮動虧損防禦成效卡 (核心亮點) -->
+            <div class="card glass-card highlight-defense-card"> <!-- 亮色防禦強調卡片 -->
+                <div class="card-header-line"> <!-- 卡片頂部列 -->
+                    <span class="card-title">🛡️ 浮動虧損防禦成效 (Risk Safeguard)</span> <!-- 卡片小標題 -->
+                    <span class="badge-mini badge-green">浮虧暴降 61.3% 🚀</span> <!-- 迷你亮點標籤 -->
+                </div> <!-- 頂部列結束 -->
+                <div class="card-main-val defense-val" id="max-float-loss-val">-151.77 pts</div> <!-- 單點最大浮虧 -->
+                <div class="card-detail"> <!-- 防禦細節對比 -->
+                    <div class="detail-row"><span>單點最大未平倉浮虧:</span><strong id="float-loss-compare-val" class="highlight-green">-151.77 pts (降 61.3%)</strong></div> <!-- 浮虧對比 -->
+                    <div class="detail-row"><span>浮動淨值最大回撤:</span><strong id="floating-mdd-val" class="highlight-green">581.79 pts (降 30.6%)</strong></div> <!-- 浮動回撤 -->
+                    <div class="detail-row"><span>加碼單最大逆向浮虧:</span><strong id="pyr-mae-val" class="highlight-green">-95.73 pts (降 75.0%)</strong></div> <!-- 加碼單浮虧 -->
+                </div> <!-- 細節結束 -->
+            </div> <!-- 卡片 3 結束 -->
+
+            <!-- 卡片 4：策略總績效 & 卡瑪比率 -->
+            <div class="card glass-card highlight-pnl-card"> <!-- 獲利強調卡片 -->
+                <div class="card-header-line"> <!-- 卡片頂部列 -->
+                    <span class="card-title">🏆 總績效 & 卡瑪比率 (Calmar)</span> <!-- 卡片小標題 -->
+                    <span class="badge-mini badge-gold" id="calmar-badge">頂級基金表現</span> <!-- 迷你金牌標籤 -->
+                </div> <!-- 頂部列結束 -->
+                <div class="card-main-val positive-val" id="total-pnl-val">+3,890.32 pts</div> <!-- 總累積損益 -->
+                <div class="card-detail"> <!-- 績效細節 -->
+                    <div class="detail-row"><span>卡瑪比率 (Calmar):</span><strong id="calmar-ratio-val" style="color: #ffd54f; font-size: 1.15em;">7.44</strong></div> <!-- 卡瑪比率 -->
+                    <div class="detail-row"><span>夏普比率 (Sharpe):</span><strong id="sharpe-ratio-val" style="color: #4fc3f7;">2.57</strong></div> <!-- 夏普比率 -->
+                    <div class="detail-row"><span>盈虧比 (PF) / 勝率:</span><strong id="pf-winrate-val">1.82 (40.5%)</strong></div> <!-- 盈虧比與勝率 -->
+                    <div class="detail-row"><span>已平倉回撤 (MDD):</span><strong id="mdd-val">321.62 pts (降 32.4%)</strong></div> <!-- MDD -->
+                </div> <!-- 績效細節結束 -->
+            </div> <!-- 卡片 4 結束 -->
+
+            <!-- 卡片 5：Alpha 動能與 FTMO 風控 -->
+            <div class="card glass-card"> <!-- 玻璃擬態卡片容器 -->
+                <div class="card-header-line"> <!-- 卡片頂部列 -->
+                    <span class="card-title">🌐 Alpha 動能 & FTMO 死線</span> <!-- 卡片小標題 -->
+                    <span class="badge-mini badge-ftmo-active">FTMO 安全</span> <!-- 迷你標籤 -->
+                </div> <!-- 頂部列結束 -->
+                <div class="card-main-val" id="alpha-status-val">多頭強勢</div> <!-- Alpha 綜合狀態 -->
+                <div class="card-detail"> <!-- 風控細節 -->
+                    <div class="detail-row"><span>Alpha 1D / 5D / 10D:</span><strong id="alpha-values-row">+0.2% / +1.1% / +3.4%</strong></div> <!-- Alpha 動能 -->
+                    <div class="detail-row"><span>FTMO 日內 4.5% 熔斷:</span><strong style="color: #00e676;">🟢 100% 運行安全</strong></div> <!-- FTMO 日內狀態 -->
+                    <div class="detail-row"><span>總帳戶 9.0% 熔斷:</span><strong style="color: #00e676;">🟢 遠離死線無風險</strong></div> <!-- FTMO 總額狀態 -->
+                </div> <!-- 風控細節結束 -->
+            </div> <!-- 卡片 5 結束 -->
+
+        </section> <!-- 統計卡片網格結束 -->
+
+        <!-- 第二區：XAUUSD 4H 互動主圖表 -->
+        <section class="chart-section glass-panel"> <!-- 主圖表面板區塊 -->
+            <div class="panel-header"> <!-- 面板標題列 -->
+                <div class="panel-title-group"> <!-- 標題群組 -->
+                    <h2>📊 XAUUSD 4H 主圖表 (含 30MA、50/20/60MA 與自適應進出場標記)</h2> <!-- 圖表大標題 -->
+                    <span class="panel-subinfo">點擊下方歷史交易明細即可於主圖自動跳轉並聚焦該筆持倉</span> <!-- 操作說明 -->
+                </div> <!-- 群組結束 -->
+                <div class="chart-controls"> <!-- 圖表控制工具列 -->
+                    <button id="btn-reset-gold-chart" class="btn-action-sm">🔄 重置全景視角</button> <!-- 重置按鈕 -->
+                    <span class="legend-badge badge-30ma">4H 30MA</span> <!-- 4H 30MA 圖例 -->
+                    <span class="legend-badge badge-50ma">Daily 50MA (趨勢)</span> <!-- Daily 50MA 圖例 -->
+                    <span class="legend-badge badge-20ma">Daily 20MA</span> <!-- Daily 20MA 圖例 -->
+                    <span class="legend-badge badge-60ma">Daily 60MA</span> <!-- Daily 60MA 圖例 -->
+                </div> <!-- 工具列結束 -->
+            </div> <!-- 面板標題列結束 -->
+            <div id="gold-chart" class="plotly-chart-container"></div> <!-- XAUUSD Plotly 繪圖掛載點 -->
+        </section> <!-- XAUUSD 圖表區塊結束 -->
+
+        <!-- 雙子圖區：累積權益曲線 & 美元指數 DXY -->
+        <div class="dual-chart-grid"> <!-- 雙子圖並列網格 -->
+            
+            <!-- 子圖 1：策略累積權益曲線 & 水下回撤 -->
+            <section class="chart-section glass-panel"> <!-- 權益曲線面板區塊 -->
+                <div class="panel-header"> <!-- 面板標題列 -->
+                    <div class="panel-title-group"> <!-- 標題群組 -->
+                        <h2>📈 累積權益曲線與水下回撤 (Equity Curve & Underwater Drawdown)</h2> <!-- 圖表標題 -->
+                        <span class="panel-subinfo">51Bitquant 動態 ATR 調制使回撤平滑度大幅優於固定手數版</span> <!-- 副標說明 -->
+                    </div> <!-- 群組結束 -->
+                    <div class="chart-controls"> <!-- 控制按鈕區塊 -->
+                        <button id="btn-reset-equity-chart" class="btn-action-sm">🔄 重置視角</button> <!-- 重置權益曲線視角按鈕 -->
+                    </div> <!-- 控制區塊結束 -->
+                </div> <!-- 標題列結束 -->
+                <div id="equity-chart" class="plotly-chart-container-medium"></div> <!-- 權益曲線掛載點 -->
+            </section> <!-- 權益曲線面板結束 -->
+
+            <!-- 子圖 2：ICEUS DXY 美元指數日線圖表 -->
+            <section class="chart-section glass-panel"> <!-- DXY 圖表面板區塊 -->
+                <div class="panel-header"> <!-- 面板標題列 -->
+                    <div class="panel-title-group"> <!-- 標題群組 -->
+                        <h2>🌐 ICEUS DXY 美元指數日線與濾網 (Daily MA20 / MA60)</h2> <!-- 圖表大標題 -->
+                        <span class="panel-subinfo">跨市場動能比對：黃金走強與美元疲軟產生強烈 Alpha</span> <!-- 說明 -->
+                    </div> <!-- 群組結束 -->
+                    <div class="chart-controls"> <!-- 圖表控制工具列 -->
+                        <button id="btn-reset-dxy-chart" class="btn-action-sm">🔄 重置視角</button> <!-- 重置按鈕 -->
+                        <span class="legend-badge badge-dxy20">DXY 20MA</span> <!-- 20MA 圖例 -->
+                        <span class="legend-badge badge-dxy60">DXY 60MA</span> <!-- 60MA 圖例 -->
+                    </div> <!-- 工具列結束 -->
+                </div> <!-- 面板標題列結束 -->
+                <div id="dxy-chart" class="plotly-chart-container-medium"></div> <!-- DXY Plotly 繪圖掛載點 -->
+            </section> <!-- DXY 圖表區塊結束 -->
+
+        </div> <!-- 雙子圖網格結束 -->
+
+        <!-- 第三區：歷史交易明細互動探索器 (Interactive Trades Explorer) -->
+        <section class="table-section glass-panel"> <!-- 交易表格面板區塊 -->
+            <div class="panel-header"> <!-- 面板標題列 -->
+                <div class="panel-title-group"> <!-- 標題群組 -->
+                    <h2>📋 已平倉交易歷史明細 (Completed Trades Explorer)</h2> <!-- 表格大標題 -->
+                    <span class="trades-count-pill" id="trades-count-badge">共 546 筆交易</span> <!-- 交易總筆數徽章 -->
+                </div> <!-- 群組結束 -->
+                
+                <!-- 篩選與搜尋工具列 -->
+                <div class="table-toolbar"> <!-- 工具列容器 -->
+                    <div class="filter-btn-group"> <!-- 快速篩選按鈕組 -->
+                        <button class="filter-btn active" data-filter="ALL">全部 (ALL)</button> <!-- 全部按鈕 -->
+                        <button class="filter-btn" data-filter="LONG">多單 (Long)</button> <!-- 多單按鈕 -->
+                        <button class="filter-btn" data-filter="SHORT">空單 (Short)</button> <!-- 空單按鈕 -->
+                        <button class="filter-btn" data-filter="PYRAMID">加碼單 (Pyramid)</button> <!-- 加碼單按鈕 -->
+                        <button class="filter-btn" data-filter="WIN">獲利單 (Winners)</button> <!-- 獲利單按鈕 -->
+                        <button class="filter-btn" data-filter="LOSS">虧損單 (Losses)</button> <!-- 虧損單按鈕 -->
+                    </div> <!-- 篩選按鈕組結束 -->
+                    <div class="search-box-wrapper"> <!-- 搜尋框容器 -->
+                        <input type="text" id="trades-search-input" class="search-input" placeholder="🔍 搜尋 ID、日期、出場原因..."> <!-- 即時搜尋輸入框 -->
+                    </div> <!-- 搜尋容器結束 -->
+                </div> <!-- 工具列結束 -->
+            </div> <!-- 面板標題列結束 -->
+
+            <div class="table-wrapper"> <!-- 表格滾動容器 -->
+                <table class="data-table" id="trades-table"> <!-- 交易明細資料表格 -->
+                    <thead> <!-- 表頭區塊 -->
+                        <tr> <!-- 表頭列 -->
+                            <th style="width: 60px;">ID</th> <!-- 交易序號流水號 -->
+                            <th>方向 (Type)</th> <!-- 交易多空類型 -->
+                            <th>部位屬性</th> <!-- 是否為加碼倉 -->
+                            <th>調制手數 (Units)</th> <!-- 51Bitquant 動態調制手數 -->
+                            <th>進場時間</th> <!-- 開倉時間戳記 -->
+                            <th>進場價格</th> <!-- 開倉成交價格 -->
+                            <th>出場時間</th> <!-- 平倉時間戳記 -->
+                            <th>出場價格</th> <!-- 平倉成交價格 -->
+                            <th>單筆最大浮虧 (MAE)</th> <!-- 單筆交易最大逆向浮虧 -->
+                            <th>持倉時數</th> <!-- 持有小時數 -->
+                            <th>平倉原因</th> <!-- 出場觸發條件 -->
+                            <th>淨損益 (點數)</th> <!-- 扣除點差隔夜費後之淨獲利點數 -->
+                        </tr> <!-- 表頭列結束 -->
+                    </thead> <!-- 表頭區塊結束 -->
+                    <tbody id="trades-tbody"> <!-- 表身資料載入區 -->
+                        <tr> <!-- 預設載入中提示列 -->
+                            <td colspan="12" class="text-center">資料載入中...</td> <!-- 跨 12 欄提示文字 -->
+                        </tr> <!-- 提示列結束 -->
+                    </tbody> <!-- 表身區塊結束 -->
+                </table> <!-- 交易明細表格結束 -->
+            </div> <!-- 表格容器結束 -->
+
+            <!-- 表格分頁控制列 -->
+            <div class="table-pagination-row"> <!-- 分頁列容器 -->
+                <div class="pagination-info" id="pagination-info-text">顯示第 1 至 15 筆，共 546 筆</div> <!-- 分頁資訊 -->
+                <div class="pagination-controls"> <!-- 分頁按鈕組 -->
+                    <button class="btn-page" id="btn-first-page">⏮ 首頁</button> <!-- 首頁按鈕 -->
+                    <button class="btn-page" id="btn-prev-page">◀ 上一頁</button> <!-- 上一頁按鈕 -->
+                    <span class="page-current-indicator" id="current-page-num">1 / 37</span> <!-- 當前頁面指示 -->
+                    <button class="btn-page" id="btn-next-page">下一頁 ▶</button> <!-- 下一頁按鈕 -->
+                    <button class="btn-page" id="btn-last-page">末頁 ⏭</button> <!-- 末頁按鈕 -->
+                </div> <!-- 按鈕組結束 -->
+            </div> <!-- 分頁列結束 -->
+
+        </section> <!-- 表格區塊結束 -->
+
+        <!-- 頁尾宣告資訊 -->
+        <footer class="footer-bar glass-panel"> <!-- 頁尾容器 -->
+            <div class="footer-content"> <!-- 頁尾內容 -->
+                <p>⚡ <strong>XAUUSD 4H 30MA 51Bitquant Dynamic ATR Strategy</strong> | Real-Time Sync with Pepperstone & TradingView</p> <!-- 系統聲明 -->
+                <p class="footer-sub">Strict Cost Modeling: 0.3 pts Spread + 0.75 pts/day Long Swap + 0.27 pts/day Short Credit</p> <!-- 成本模型說明 -->
+            </div> <!-- 內容結束 -->
+        </footer> <!-- 頁尾結束 -->
+
+    </div> <!-- 儀表板全頁容器結束 -->
+
+    <!-- 引入應用程式主邏輯 app.js -->
+    <script src="app.js"></script> <!-- 載入前端互動與渲染腳本 -->
+</body> <!-- 網頁主體結束 -->
+</html> <!-- HTML5 文件結束 -->

@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+.venv/
+venv/
+
+# Debug / 診斷腳本
+debug_*.py
+
+# 原始 CSV（由 GitHub Actions 自動更新）
+comex_gc1!_8h.csv
+fred_dfii10_daily.csv
+
+# 回測輸出（不需要版控）
+all_trades_detail.csv
+backtest_combined_hybrid_comparison.png
+
+# macOS
+.DS_Store
+.AppleDouble
+
+# IDE
+.vscode/
+.idea/

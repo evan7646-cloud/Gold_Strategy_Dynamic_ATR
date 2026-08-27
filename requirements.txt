@@ -1,0 +1,5 @@
+pandas>=2.0.0
+numpy>=1.24.0
+git+https://github.com/rongardF/tvdatafeed.git
+matplotlib>=3.7.0
+requests>=2.31.0
