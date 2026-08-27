@@ -99,19 +99,19 @@ function renderStatusCards(status, metrics, goldChartData, mode) { // 渲染頂�
     } // 波動判斷結束
     
     // 3. 🛡️ 浮動虧損防禦成效卡 (亮點指標)
-    const floatClose = metrics.max_instant_float_loss_close || metrics.max_instant_float_loss || -151.77; // 單點浮虧
-    const floatMDD = metrics.floating_drawdown_points || 581.79; // 浮動淨值 MDD
-    const pyrMAE = metrics.worst_pyramid_mae || -95.73; // 加碼單 MAE
+    const floatClose = metrics.max_instant_float_loss_close || metrics.max_instant_float_loss || -231.88; // 單點浮虧 (修正 alpha_floor=1.0 後)
+    const floatMDD = metrics.floating_drawdown_points || 667.13; // 浮動淨值 MDD (修正 alpha_floor=1.0 後)
+    const pyrMAE = metrics.worst_pyramid_mae || -191.46; // 加碼單 MAE (修正 alpha_floor=1.0 後)
     
     document.getElementById('max-float-loss-val').textContent = `${floatClose.toFixed(2)} pts`; // 顯示單點浮虧
     if (is2Yr) { // 2.1 年數據
-        document.getElementById('float-loss-compare-val').textContent = `${floatClose.toFixed(2)} pts (相較Watch暴降 61.3%)`; // 浮虧降低比例
-        document.getElementById('floating-mdd-val').textContent = `${floatMDD.toFixed(2)} pts (相較Watch降 30.6%)`; // 浮動回撤降低
-        document.getElementById('pyr-mae-val').textContent = `${pyrMAE.toFixed(2)} pts (加碼浮虧縮小 75.0%)`; // 加碼單浮虧降低
+        document.getElementById('float-loss-compare-val').textContent = `${floatClose.toFixed(2)} pts (相較Watch暴降 40.9%)`; // 浮虧降低比例 (修正後)
+        document.getElementById('floating-mdd-val').textContent = `${floatMDD.toFixed(2)} pts (相較Watch降 20.4%)`; // 浮動回撤降低 (修正後)
+        document.getElementById('pyr-mae-val').textContent = `${pyrMAE.toFixed(2)} pts (加碼浮虧縮小 50.0%)`; // 加碼單浮虧降低 (修正後)
     } else { // 4 年數據
         document.getElementById('float-loss-compare-val').textContent = `${floatClose.toFixed(2)} pts (4年極限抗壓)`; // 4年浮虧
-        document.getElementById('floating-mdd-val').textContent = `${floatMDD.toFixed(2)} pts (相較原版降 22.8%)`; // 4年浮動回撤
-        document.getElementById('pyr-mae-val').textContent = `-118.20 pts (全週期鎖定在安全區)`; // 4年加碼浮虧
+        document.getElementById('floating-mdd-val').textContent = `${floatMDD.toFixed(2)} pts (相較原版降 15.8%)`; // 4年浮動回撤 (修正後)
+        document.getElementById('pyr-mae-val').textContent = `${pyrMAE.toFixed(2)} pts (全週期鎖定在安全區)`; // 4年加碼浮虧 (修正後 動態讀取)
     } // 判斷結束
     
     // 4. 總績效與 Calmar

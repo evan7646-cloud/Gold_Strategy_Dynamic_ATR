@@ -28,22 +28,22 @@
   },
   "metrics": {
     "total_trades": 546,
-    "total_pnl_points": 3890.32,
+    "total_pnl_points": 4036.93,
     "unrealized_pnl_points": -10.96,
-    "realtime_total_pnl_points": 3879.36,
+    "realtime_total_pnl_points": 4025.97,
     "win_rate": 40.48,
-    "profit_factor": 1.82,
+    "profit_factor": 1.83,
     "max_drawdown": 321.62,
-    "current_drawdown": 173.94,
-    "current_drawdown_pct": 4.28,
-    "floating_drawdown_points": 581.79,
-    "max_instant_float_loss_close": -151.77,
-    "max_instant_float_loss_worst": -222.54,
+    "current_drawdown": 179.0,
+    "current_drawdown_pct": 4.25,
+    "floating_drawdown_points": 667.13,
+    "max_instant_float_loss_close": -231.88,
+    "max_instant_float_loss_worst": -294.36,
     "worst_single_mae": -222.54,
-    "worst_pyramid_mae": -95.73,
-    "calmar_ratio": 7.44,
+    "worst_pyramid_mae": -191.46,
+    "calmar_ratio": 7.72,
     "sharpe_ratio": 2.57,
-    "annual_pnl_points": 2392.15,
+    "annual_pnl_points": 2482.3,
     "comparison_with_watch": {
       "pnl_watch": 5090.59,
       "mdd_watch": 475.89,
@@ -31367,14 +31367,14 @@
     {
       "type": "Long",
       "is_pyramid": true,
-      "units": 0.9,
+      "units": 1.0,
       "entry_date": "2025-04-11 04:00:00",
       "entry_price": 3170.85,
       "exit_date": "2025-04-11 16:00:00",
       "exit_price": 3212.31,
       "stop_price": 3131.84,
-      "pnl_points": 37.04,
-      "mae_points": -2.4,
+      "pnl_points": 41.16,
+      "mae_points": -2.67,
       "holding_hours": 0,
       "exit_reason": "Signal Exit",
       "trade_id": 108
@@ -31397,14 +31397,14 @@
     {
       "type": "Long",
       "is_pyramid": true,
-      "units": 0.91,
+      "units": 1.0,
       "entry_date": "2025-04-12 00:00:00",
       "entry_price": 3240.53,
       "exit_date": "2025-04-12 04:00:00",
       "exit_price": 3230.95,
       "stop_price": 3173.42,
-      "pnl_points": -8.99,
-      "mae_points": -18.98,
+      "pnl_points": -9.88,
+      "mae_points": -20.86,
       "holding_hours": 0,
       "exit_reason": "Signal Exit",
       "trade_id": 110
@@ -33977,14 +33977,14 @@
     {
       "type": "Long",
       "is_pyramid": true,
-      "units": 0.82,
+      "units": 1.0,
       "entry_date": "2025-10-13 08:00:00",
       "entry_price": 4035.07,
       "exit_date": "2025-10-14 16:00:00",
       "exit_price": 4126.06,
       "stop_price": 4071.95,
-      "pnl_points": 73.75,
-      "mae_points": -8.51,
+      "pnl_points": 89.94,
+      "mae_points": -10.38,
       "holding_hours": 24,
       "exit_reason": "Signal Exit",
       "trade_id": 282
@@ -34007,14 +34007,14 @@
     {
       "type": "Long",
       "is_pyramid": true,
-      "units": 0.88,
+      "units": 1.0,
       "entry_date": "2025-10-15 04:00:00",
       "entry_price": 4141.56,
       "exit_date": "2025-10-15 20:00:00",
       "exit_price": 4198.84,
       "stop_price": 4118.13,
-      "pnl_points": 50.14,
-      "mae_points": -1.87,
+      "pnl_points": 56.98,
+      "mae_points": -2.13,
       "holding_hours": 0,
       "exit_reason": "Signal Exit",
       "trade_id": 284
@@ -34067,14 +34067,14 @@
     {
       "type": "Long",
       "is_pyramid": true,
-      "units": 0.93,
+      "units": 1.0,
       "entry_date": "2025-10-17 00:00:00",
       "entry_price": 4273.52,
       "exit_date": "2025-10-17 16:00:00",
       "exit_price": 4342.28,
       "stop_price": 4222.83,
-      "pnl_points": 63.67,
-      "mae_points": -11.45,
+      "pnl_points": 68.46,
+      "mae_points": -12.31,
       "holding_hours": 0,
       "exit_reason": "Signal Exit",
       "trade_id": 288
@@ -34127,14 +34127,14 @@
     {
       "type": "Long",
       "is_pyramid": true,
-      "units": 0.53,
+      "units": 1.0,
       "entry_date": "2025-10-21 00:00:00",
       "entry_price": 4349.04,
       "exit_date": "2025-10-21 08:00:00",
       "exit_price": 4360.36,
       "stop_price": 4212.67,
-      "pnl_points": 5.84,
-      "mae_points": -6.23,
+      "pnl_points": 11.02,
+      "mae_points": -11.75,
       "holding_hours": 0,
       "exit_reason": "Signal Exit",
       "trade_id": 292
@@ -35387,14 +35387,14 @@
     {
       "type": "Long",
       "is_pyramid": true,
-      "units": 0.97,
+      "units": 1.0,
       "entry_date": "2026-01-15 20:00:00",
       "entry_price": 4619.06,
       "exit_date": "2026-01-16 00:00:00",
       "exit_price": 4615.37,
       "stop_price": 4548.03,
-      "pnl_points": -4.6,
-      "mae_points": -35.48,
+      "pnl_points": -4.74,
+      "mae_points": -36.58,
       "holding_hours": 24,
       "exit_reason": "Signal Exit",
       "trade_id": 376
@@ -35507,14 +35507,14 @@
     {
       "type": "Long",
       "is_pyramid": true,
-      "units": 0.67,
+      "units": 1.0,
       "entry_date": "2026-01-22 16:00:00",
       "entry_price": 4832.68,
       "exit_date": "2026-01-22 20:00:00",
       "exit_price": 4831.18,
       "stop_price": 4724.42,
-      "pnl_points": -1.21,
-      "mae_points": -12.56,
+      "pnl_points": -1.8,
+      "mae_points": -18.74,
       "holding_hours": 0,
       "exit_reason": "Signal Exit",
       "trade_id": 384
@@ -35537,14 +35537,14 @@
     {
       "type": "Long",
       "is_pyramid": true,
-      "units": 0.61,
+      "units": 1.0,
       "entry_date": "2026-01-23 04:00:00",
       "entry_price": 4911.92,
       "exit_date": "2026-01-23 12:00:00",
       "exit_price": 4952.03,
       "stop_price": 4815.05,
-      "pnl_points": 24.28,
-      "mae_points": -0.29,
+      "pnl_points": 39.81,
+      "mae_points": -0.48,
       "holding_hours": 0,
       "exit_reason": "Signal Exit",
       "trade_id": 386
@@ -35567,14 +35567,14 @@
     {
       "type": "Long",
       "is_pyramid": true,
-      "units": 0.65,
+      "units": 1.0,
       "entry_date": "2026-01-24 04:00:00",
       "entry_price": 4984.51,
       "exit_date": "2026-01-27 00:00:00",
       "exit_price": 5091.01,
       "stop_price": 4961.57,
-      "pnl_points": 67.57,
-      "mae_points": -9.02,
+      "pnl_points": 103.95,
+      "mae_points": -13.87,
       "holding_hours": 72,
       "exit_reason": "Signal Exit",
       "trade_id": 388
@@ -35612,14 +35612,14 @@
     {
       "type": "Long",
       "is_pyramid": true,
-      "units": 0.66,
+      "units": 1.0,
       "entry_date": "2026-01-28 04:00:00",
       "entry_price": 5098.93,
       "exit_date": "2026-01-28 20:00:00",
       "exit_price": 5261.99,
       "stop_price": 5098.85,
-      "pnl_points": 107.42,
-      "mae_points": -0.56,
+      "pnl_points": 162.76,
+      "mae_points": -0.85,
       "holding_hours": 0,
       "exit_reason": "Signal Exit",
       "trade_id": 391
@@ -35642,14 +35642,14 @@
     {
       "type": "Long",
       "is_pyramid": true,
-      "units": 0.52,
+      "units": 1.0,
       "entry_date": "2026-01-29 04:00:00",
       "entry_price": 5325.25,
       "exit_date": "2026-01-29 20:00:00",
       "exit_price": 5522.71,
       "stop_price": 5190.01,
-      "pnl_points": 102.52,
-      "mae_points": -2.0,
+      "pnl_points": 197.16,
+      "mae_points": -3.85,
       "holding_hours": 0,
       "exit_reason": "Signal Exit",
       "trade_id": 393
@@ -36242,14 +36242,14 @@
     {
       "type": "Short",
       "is_pyramid": true,
-      "units": 0.5,
+      "units": 1.0,
       "entry_date": "2026-03-27 04:00:00",
       "entry_price": 4363.83,
       "exit_date": "2026-03-28 00:00:00",
       "exit_price": 4524.27,
       "stop_price": 4537.37,
-      "pnl_points": -80.24,
-      "mae_points": -95.73,
+      "pnl_points": -160.47,
+      "mae_points": -191.46,
       "holding_hours": 24,
       "exit_reason": "Signal Exit",
       "trade_id": 433
@@ -36272,14 +36272,14 @@
     {
       "type": "Short",
       "is_pyramid": true,
-      "units": 0.5,
+      "units": 1.0,
       "entry_date": "2026-03-30 04:00:00",
       "entry_price": 4486.25,
       "exit_date": "2026-03-30 12:00:00",
       "exit_price": 4496.16,
       "stop_price": 4585.59,
-      "pnl_points": -5.1,
-      "mae_points": -15.64,
+      "pnl_points": -10.21,
+      "mae_points": -31.27,
       "holding_hours": 0,
       "exit_reason": "Signal Exit",
       "trade_id": 435
@@ -36677,14 +36677,14 @@
     {
       "type": "Short",
       "is_pyramid": true,
-      "units": 0.91,
+      "units": 1.0,
       "entry_date": "2026-05-04 08:00:00",
       "entry_price": 4613.75,
       "exit_date": "2026-05-04 12:00:00",
       "exit_price": 4615.11,
       "stop_price": 4664.75,
-      "pnl_points": -1.51,
-      "mae_points": -4.39,
+      "pnl_points": -1.66,
+      "mae_points": -4.82,
       "holding_hours": 0,
       "exit_reason": "Signal Exit",
       "trade_id": 462
@@ -36707,14 +36707,14 @@
     {
       "type": "Short",
       "is_pyramid": true,
-      "units": 0.89,
+      "units": 1.0,
       "entry_date": "2026-05-04 20:00:00",
       "entry_price": 4560.37,
       "exit_date": "2026-05-06 08:00:00",
       "exit_price": 4593.95,
       "stop_price": 4621.8,
-      "pnl_points": -29.67,
-      "mae_points": -31.53,
+      "pnl_points": -33.34,
+      "mae_points": -35.43,
       "holding_hours": 48,
       "exit_reason": "Signal Exit",
       "trade_id": 464
@@ -36857,14 +36857,14 @@
     {
       "type": "Short",
       "is_pyramid": true,
-      "units": 0.82,
+      "units": 1.0,
       "entry_date": "2026-05-20 04:00:00",
       "entry_price": 4483.55,
       "exit_date": "2026-05-22 04:00:00",
       "exit_price": 4543.2,
       "stop_price": 4610.26,
-      "pnl_points": -48.72,
-      "mae_points": -71.54,
+      "pnl_points": -59.41,
+      "mae_points": -87.24,
       "holding_hours": 48,
       "exit_reason": "Signal Exit",
       "trade_id": 474
@@ -37007,14 +37007,14 @@
     {
       "type": "Short",
       "is_pyramid": true,
-      "units": 0.81,
+      "units": 1.0,
       "entry_date": "2026-06-10 04:00:00",
       "entry_price": 4258.4,
       "exit_date": "2026-06-12 04:00:00",
       "exit_price": 4208.73,
       "stop_price": 4182.26,
-      "pnl_points": 40.43,
-      "mae_points": -3.07,
+      "pnl_points": 49.91,
+      "mae_points": -3.79,
       "holding_hours": 48,
       "exit_reason": "Stop Loss Exit",
       "trade_id": 484
@@ -37172,14 +37172,14 @@
     {
       "type": "Short",
       "is_pyramid": true,
-      "units": 0.88,
+      "units": 1.0,
       "entry_date": "2026-06-29 12:00:00",
       "entry_price": 4069.09,
       "exit_date": "2026-07-01 20:00:00",
       "exit_price": 4030.59,
       "stop_price": 4058.26,
-      "pnl_points": 34.09,
-      "mae_points": -0.1,
+      "pnl_points": 38.74,
+      "mae_points": -0.11,
       "holding_hours": 48,
       "exit_reason": "Signal Exit",
       "trade_id": 495
@@ -37817,14 +37817,14 @@
     {
       "type": "Long",
       "is_pyramid": true,
-      "units": 0.82,
+      "units": 1.0,
       "entry_date": "2026-08-20 04:00:00",
       "entry_price": 4511.05,
       "exit_date": "2026-08-20 12:00:00",
       "exit_price": 4498.98,
       "stop_price": 4322.96,
-      "pnl_points": -10.14,
-      "mae_points": -21.82,
+      "pnl_points": -12.37,
+      "mae_points": -26.61,
       "holding_hours": 0,
       "exit_reason": "Signal Exit",
       "trade_id": 538
@@ -37877,14 +37877,14 @@
     {
       "type": "Long",
       "is_pyramid": true,
-      "units": 0.86,
+      "units": 1.0,
       "entry_date": "2026-08-24 12:00:00",
       "entry_price": 4641.5,
       "exit_date": "2026-08-25 00:00:00",
       "exit_price": 4650.28,
       "stop_price": 4557.94,
-      "pnl_points": 6.65,
-      "mae_points": -10.94,
+      "pnl_points": 7.73,
+      "mae_points": -12.72,
       "holding_hours": 24,
       "exit_reason": "Signal Exit",
       "trade_id": 542
@@ -37907,14 +37907,14 @@
     {
       "type": "Long",
       "is_pyramid": true,
-      "units": 0.91,
+      "units": 1.0,
       "entry_date": "2026-08-25 08:00:00",
       "entry_price": 4680.41,
       "exit_date": "2026-08-25 12:00:00",
       "exit_price": 4633.79,
       "stop_price": 4590.21,
-      "pnl_points": -42.7,
-      "mae_points": -56.86,
+      "pnl_points": -46.92,
+      "mae_points": -62.48,
       "holding_hours": 0,
       "exit_reason": "Signal Exit",
       "trade_id": 544
@@ -37937,14 +37937,14 @@
     {
       "type": "Long",
       "is_pyramid": true,
-      "units": 0.82,
+      "units": 1.0,
       "entry_date": "2026-08-26 00:00:00",
       "entry_price": 4652.94,
       "exit_date": "2026-08-26 08:00:00",
       "exit_price": 4654.95,
       "stop_price": 4567.62,
-      "pnl_points": 1.4,
-      "mae_points": -15.46,
+      "pnl_points": 1.71,
+      "mae_points": -18.85,
       "holding_hours": 0,
       "exit_reason": "Signal Exit",
       "trade_id": 546
@@ -39658,7 +39658,7 @@
     {
       "time": "2025-04-11 04:00:00",
       "price": 3170.85,
-      "title": "+Pyramid Long (0.9x ATR-Adaptive)",
+      "title": "+Pyramid Long (1.0x ATR-Adaptive)",
       "text": "Price: 3170.85 | ATR: 35.6",
       "shape": "arrowUp",
       "color": "#26a69a"
@@ -39675,7 +39675,7 @@
       "time": "2025-04-11 16:00:00",
       "price": 3212.31,
       "title": "Exit Long (Signal Exit)",
-      "text": "PnL: 37.04",
+      "text": "PnL: 41.16",
       "shape": "arrowDown",
       "color": "#ef5350"
     },
@@ -39690,7 +39690,7 @@
     {
       "time": "2025-04-12 00:00:00",
       "price": 3240.53,
-      "title": "+Pyramid Long (0.91x ATR-Adaptive)",
+      "title": "+Pyramid Long (1.0x ATR-Adaptive)",
       "text": "Price: 3240.53 | ATR: 35.0",
       "shape": "arrowUp",
       "color": "#26a69a"
@@ -39707,7 +39707,7 @@
       "time": "2025-04-12 04:00:00",
       "price": 3230.95,
       "title": "Exit Long (Signal Exit)",
-      "text": "PnL: -8.99",
+      "text": "PnL: -9.88",
       "shape": "arrowDown",
       "color": "#ef5350"
     },
@@ -42154,7 +42154,7 @@
     {
       "time": "2025-10-13 08:00:00",
       "price": 4035.07,
-      "title": "+Pyramid Long (0.82x ATR-Adaptive)",
+      "title": "+Pyramid Long (1.0x ATR-Adaptive)",
       "text": "Price: 4035.07 | ATR: 39.0",
       "shape": "arrowUp",
       "color": "#26a69a"
@@ -42171,7 +42171,7 @@
       "time": "2025-10-14 16:00:00",
       "price": 4126.06,
       "title": "Exit Long (Signal Exit)",
-      "text": "PnL: 73.75",
+      "text": "PnL: 89.94",
       "shape": "arrowDown",
       "color": "#ef5350"
     },
@@ -42186,7 +42186,7 @@
     {
       "time": "2025-10-15 04:00:00",
       "price": 4141.56,
-      "title": "+Pyramid Long (0.88x ATR-Adaptive)",
+      "title": "+Pyramid Long (1.0x ATR-Adaptive)",
       "text": "Price: 4141.56 | ATR: 36.3",
       "shape": "arrowUp",
       "color": "#26a69a"
@@ -42203,7 +42203,7 @@
       "time": "2025-10-15 20:00:00",
       "price": 4198.84,
       "title": "Exit Long (Signal Exit)",
-      "text": "PnL: 50.14",
+      "text": "PnL: 56.98",
       "shape": "arrowDown",
       "color": "#ef5350"
     },
@@ -42250,7 +42250,7 @@
     {
       "time": "2025-10-17 00:00:00",
       "price": 4273.52,
-      "title": "+Pyramid Long (0.93x ATR-Adaptive)",
+      "title": "+Pyramid Long (1.0x ATR-Adaptive)",
       "text": "Price: 4273.52 | ATR: 34.4",
       "shape": "arrowUp",
       "color": "#26a69a"
@@ -42267,7 +42267,7 @@
       "time": "2025-10-17 16:00:00",
       "price": 4342.28,
       "title": "Exit Long (Signal Exit)",
-      "text": "PnL: 63.67",
+      "text": "PnL: 68.46",
       "shape": "arrowDown",
       "color": "#ef5350"
     },
@@ -42314,7 +42314,7 @@
     {
       "time": "2025-10-21 00:00:00",
       "price": 4349.04,
-      "title": "+Pyramid Long (0.53x ATR-Adaptive)",
+      "title": "+Pyramid Long (1.0x ATR-Adaptive)",
       "text": "Price: 4349.04 | ATR: 60.2",
       "shape": "arrowUp",
       "color": "#26a69a"
@@ -42331,7 +42331,7 @@
       "time": "2025-10-21 08:00:00",
       "price": 4360.36,
       "title": "Exit Long (Signal Exit)",
-      "text": "PnL: 5.84",
+      "text": "PnL: 11.02",
       "shape": "arrowDown",
       "color": "#ef5350"
     },
@@ -43658,7 +43658,7 @@
     {
       "time": "2026-01-15 20:00:00",
       "price": 4619.06,
-      "title": "+Pyramid Long (0.97x ATR-Adaptive)",
+      "title": "+Pyramid Long (1.0x ATR-Adaptive)",
       "text": "Price: 4619.06 | ATR: 33.0",
       "shape": "arrowUp",
       "color": "#26a69a"
@@ -43675,7 +43675,7 @@
       "time": "2026-01-16 00:00:00",
       "price": 4615.37,
       "title": "Exit Long (Signal Exit)",
-      "text": "PnL: -4.60",
+      "text": "PnL: -4.74",
       "shape": "arrowDown",
       "color": "#ef5350"
     },
@@ -43786,7 +43786,7 @@
     {
       "time": "2026-01-22 16:00:00",
       "price": 4832.68,
-      "title": "+Pyramid Long (0.67x ATR-Adaptive)",
+      "title": "+Pyramid Long (1.0x ATR-Adaptive)",
       "text": "Price: 4832.68 | ATR: 48.1",
       "shape": "arrowUp",
       "color": "#26a69a"
@@ -43803,7 +43803,7 @@
       "time": "2026-01-22 20:00:00",
       "price": 4831.18,
       "title": "Exit Long (Signal Exit)",
-      "text": "PnL: -1.21",
+      "text": "PnL: -1.80",
       "shape": "arrowDown",
       "color": "#ef5350"
     },
@@ -43818,7 +43818,7 @@
     {
       "time": "2026-01-23 04:00:00",
       "price": 4911.92,
-      "title": "+Pyramid Long (0.61x ATR-Adaptive)",
+      "title": "+Pyramid Long (1.0x ATR-Adaptive)",
       "text": "Price: 4911.92 | ATR: 52.1",
       "shape": "arrowUp",
       "color": "#26a69a"
@@ -43835,7 +43835,7 @@
       "time": "2026-01-23 12:00:00",
       "price": 4952.03,
       "title": "Exit Long (Signal Exit)",
-      "text": "PnL: 24.28",
+      "text": "PnL: 39.81",
       "shape": "arrowDown",
       "color": "#ef5350"
     },
@@ -43850,7 +43850,7 @@
     {
       "time": "2026-01-24 04:00:00",
       "price": 4984.51,
-      "title": "+Pyramid Long (0.65x ATR-Adaptive)",
+      "title": "+Pyramid Long (1.0x ATR-Adaptive)",
       "text": "Price: 4984.51 | ATR: 49.3",
       "shape": "arrowUp",
       "color": "#26a69a"
@@ -43867,7 +43867,7 @@
       "time": "2026-01-27 00:00:00",
       "price": 5091.01,
       "title": "Exit Long (Signal Exit)",
-      "text": "PnL: 67.57",
+      "text": "PnL: 103.95",
       "shape": "arrowDown",
       "color": "#ef5350"
     },
@@ -43898,7 +43898,7 @@
     {
       "time": "2026-01-28 04:00:00",
       "price": 5098.93,
-      "title": "+Pyramid Long (0.66x ATR-Adaptive)",
+      "title": "+Pyramid Long (1.0x ATR-Adaptive)",
       "text": "Price: 5098.93 | ATR: 48.2",
       "shape": "arrowUp",
       "color": "#26a69a"
@@ -43915,7 +43915,7 @@
       "time": "2026-01-28 20:00:00",
       "price": 5261.99,
       "title": "Exit Long (Signal Exit)",
-      "text": "PnL: 107.42",
+      "text": "PnL: 162.76",
       "shape": "arrowDown",
       "color": "#ef5350"
     },
@@ -43930,7 +43930,7 @@
     {
       "time": "2026-01-29 04:00:00",
       "price": 5325.25,
-      "title": "+Pyramid Long (0.52x ATR-Adaptive)",
+      "title": "+Pyramid Long (1.0x ATR-Adaptive)",
       "text": "Price: 5325.25 | ATR: 61.9",
       "shape": "arrowUp",
       "color": "#26a69a"
@@ -43947,7 +43947,7 @@
       "time": "2026-01-29 20:00:00",
       "price": 5522.71,
       "title": "Exit Long (Signal Exit)",
-      "text": "PnL: 102.52",
+      "text": "PnL: 197.16",
       "shape": "arrowDown",
       "color": "#ef5350"
     },
@@ -44810,7 +44810,7 @@
     {
       "time": "2026-08-20 04:00:00",
       "price": 4511.05,
-      "title": "+Pyramid Long (0.82x ATR-Adaptive)",
+      "title": "+Pyramid Long (1.0x ATR-Adaptive)",
       "text": "Price: 4511.05 | ATR: 39.1",
       "shape": "arrowUp",
       "color": "#26a69a"
@@ -44827,7 +44827,7 @@
       "time": "2026-08-20 12:00:00",
       "price": 4498.98,
       "title": "Exit Long (Signal Exit)",
-      "text": "PnL: -10.14",
+      "text": "PnL: -12.37",
       "shape": "arrowDown",
       "color": "#ef5350"
     },
@@ -44874,7 +44874,7 @@
     {
       "time": "2026-08-24 12:00:00",
       "price": 4641.5,
-      "title": "+Pyramid Long (0.86x ATR-Adaptive)",
+      "title": "+Pyramid Long (1.0x ATR-Adaptive)",
       "text": "Price: 4641.50 | ATR: 37.0",
       "shape": "arrowUp",
       "color": "#26a69a"
@@ -44891,7 +44891,7 @@
       "time": "2026-08-25 00:00:00",
       "price": 4650.28,
       "title": "Exit Long (Signal Exit)",
-      "text": "PnL: 6.65",
+      "text": "PnL: 7.73",
       "shape": "arrowDown",
       "color": "#ef5350"
     },
@@ -44906,7 +44906,7 @@
     {
       "time": "2026-08-25 08:00:00",
       "price": 4680.41,
-      "title": "+Pyramid Long (0.91x ATR-Adaptive)",
+      "title": "+Pyramid Long (1.0x ATR-Adaptive)",
       "text": "Price: 4680.41 | ATR: 35.1",
       "shape": "arrowUp",
       "color": "#26a69a"
@@ -44923,7 +44923,7 @@
       "time": "2026-08-25 12:00:00",
       "price": 4633.79,
       "title": "Exit Long (Signal Exit)",
-      "text": "PnL: -42.70",
+      "text": "PnL: -46.92",
       "shape": "arrowDown",
       "color": "#ef5350"
     },
@@ -44938,7 +44938,7 @@
     {
       "time": "2026-08-26 00:00:00",
       "price": 4652.94,
-      "title": "+Pyramid Long (0.82x ATR-Adaptive)",
+      "title": "+Pyramid Long (1.0x ATR-Adaptive)",
       "text": "Price: 4652.94 | ATR: 39.0",
       "shape": "arrowUp",
       "color": "#26a69a"
@@ -44955,7 +44955,7 @@
       "time": "2026-08-26 08:00:00",
       "price": 4654.95,
       "title": "Exit Long (Signal Exit)",
-      "text": "PnL: 1.40",
+      "text": "PnL: 1.71",
       "shape": "arrowDown",
       "color": "#ef5350"
     },
@@ -45314,7 +45314,7 @@
     {
       "time": "2026-03-27 04:00:00",
       "price": 4363.83,
-      "title": "+Pyramid Short (0.5x ATR-Adaptive)",
+      "title": "+Pyramid Short (1.0x ATR-Adaptive)",
       "text": "Price: 4363.83 | ATR: 71.5",
       "shape": "arrowDown",
       "color": "#ef5350"
@@ -45331,7 +45331,7 @@
       "time": "2026-03-28 00:00:00",
       "price": 4524.27,
       "title": "Exit Short (Signal Exit)",
-      "text": "PnL: -80.24",
+      "text": "PnL: -160.47",
       "shape": "arrowUp",
       "color": "#26a69a"
     },
@@ -45346,7 +45346,7 @@
     {
       "time": "2026-03-30 04:00:00",
       "price": 4486.25,
-      "title": "+Pyramid Short (0.5x ATR-Adaptive)",
+      "title": "+Pyramid Short (1.0x ATR-Adaptive)",
       "text": "Price: 4486.25 | ATR: 66.5",
       "shape": "arrowDown",
       "color": "#ef5350"
@@ -45363,7 +45363,7 @@
       "time": "2026-03-30 12:00:00",
       "price": 4496.16,
       "title": "Exit Short (Signal Exit)",
-      "text": "PnL: -5.10",
+      "text": "PnL: -10.21",
       "shape": "arrowUp",
       "color": "#26a69a"
     },
@@ -45778,7 +45778,7 @@
     {
       "time": "2026-05-04 08:00:00",
       "price": 4613.75,
-      "title": "+Pyramid Short (0.91x ATR-Adaptive)",
+      "title": "+Pyramid Short (1.0x ATR-Adaptive)",
       "text": "Price: 4613.75 | ATR: 35.3",
       "shape": "arrowDown",
       "color": "#ef5350"
@@ -45795,7 +45795,7 @@
       "time": "2026-05-04 12:00:00",
       "price": 4615.11,
       "title": "Exit Short (Signal Exit)",
-      "text": "PnL: -1.51",
+      "text": "PnL: -1.66",
       "shape": "arrowUp",
       "color": "#26a69a"
     },
@@ -45810,7 +45810,7 @@
     {
       "time": "2026-05-04 20:00:00",
       "price": 4560.37,
-      "title": "+Pyramid Short (0.89x ATR-Adaptive)",
+      "title": "+Pyramid Short (1.0x ATR-Adaptive)",
       "text": "Price: 4560.37 | ATR: 36.0",
       "shape": "arrowDown",
       "color": "#ef5350"
@@ -45827,7 +45827,7 @@
       "time": "2026-05-06 08:00:00",
       "price": 4593.95,
       "title": "Exit Short (Signal Exit)",
-      "text": "PnL: -29.67",
+      "text": "PnL: -33.34",
       "shape": "arrowUp",
       "color": "#26a69a"
     },
@@ -45922,7 +45922,7 @@
     {
       "time": "2026-05-20 04:00:00",
       "price": 4483.55,
-      "title": "+Pyramid Short (0.82x ATR-Adaptive)",
+      "title": "+Pyramid Short (1.0x ATR-Adaptive)",
       "text": "Price: 4483.55 | ATR: 38.9",
       "shape": "arrowDown",
       "color": "#ef5350"
@@ -45939,7 +45939,7 @@
       "time": "2026-05-22 04:00:00",
       "price": 4543.2,
       "title": "Exit Short (Signal Exit)",
-      "text": "PnL: -48.72",
+      "text": "PnL: -59.41",
       "shape": "arrowUp",
       "color": "#26a69a"
     },
@@ -46082,7 +46082,7 @@
     {
       "time": "2026-06-10 04:00:00",
       "price": 4258.4,
-      "title": "+Pyramid Short (0.81x ATR-Adaptive)",
+      "title": "+Pyramid Short (1.0x ATR-Adaptive)",
       "text": "Price: 4258.40 | ATR: 39.5",
       "shape": "arrowDown",
       "color": "#ef5350"
@@ -46099,7 +46099,7 @@
       "time": "2026-06-12 04:00:00",
       "price": 4208.73,
       "title": "Exit Short (Stop Loss Exit)",
-      "text": "PnL: 40.43",
+      "text": "PnL: 49.91",
       "shape": "arrowUp",
       "color": "#26a69a"
     },
@@ -46258,7 +46258,7 @@
     {
       "time": "2026-06-29 12:00:00",
       "price": 4069.09,
-      "title": "+Pyramid Short (0.88x ATR-Adaptive)",
+      "title": "+Pyramid Short (1.0x ATR-Adaptive)",
       "text": "Price: 4069.09 | ATR: 36.2",
       "shape": "arrowDown",
       "color": "#ef5350"
@@ -46275,7 +46275,7 @@
       "time": "2026-07-01 20:00:00",
       "price": 4030.59,
       "title": "Exit Short (Signal Exit)",
-      "text": "PnL: 34.09",
+      "text": "PnL: 38.74",
       "shape": "arrowUp",
       "color": "#26a69a"
     },
@@ -46698,16 +46698,16 @@
   ],
   "metrics_4yr": {
     "total_trades": 1108,
-    "total_pnl_points": 2196.7,
-    "annual_pnl_points": 612.01,
+    "total_pnl_points": 2228.95,
+    "annual_pnl_points": 620.99,
     "win_rate": 33.12,
     "profit_factor": 1.26,
     "max_drawdown": 530.95,
-    "current_drawdown": 313.81,
-    "current_drawdown_pct": 12.5,
-    "floating_drawdown_points": 636.51,
-    "max_instant_float_loss": -157.6,
-    "calmar_ratio": 1.15,
+    "current_drawdown": 319.56,
+    "current_drawdown_pct": 12.54,
+    "floating_drawdown_points": 693.63,
+    "max_instant_float_loss": -163.5,
+    "calmar_ratio": 1.17,
     "sharpe_ratio": 0.95,
     "years": 3.59
   }

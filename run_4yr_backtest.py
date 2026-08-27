@@ -111,6 +111,8 @@ def run_4yr_adaptive_backtest():  # 執行 4 年全數據回測
                                 atr_ratio = baseline_atr / max(tatr, 4.0)  # 計算波動度倒數係數
                                 base_mult = 2.0 if dy_a10 > 0.03 else 1.0  # 基礎乘數
                                 u = round(min(2.5, max(0.5, base_mult * atr_ratio)), 2)  # 調制手數
+                                if dy_a10 > 0.04 and u < 1.0:  # 超強單邊動能保底保護 (對齊 EA InpAlphaTrendFloor=1.0)
+                                    u = 1.0  # 強制保底至 1.0x
                                 new_p.append({'pyr': True, 'u': u, 'ed': ns, 'ep': no, 'sl': min(tl, tpl) - 1.0 * tatr, 'mae': 0.0})  # 加多
                         pos = new_p  # 更新部位
                 else:  # 空手主多
@@ -144,6 +146,8 @@ def run_4yr_adaptive_backtest():  # 執行 4 年全數據回測
                                 atr_ratio = baseline_atr / max(tatr, 4.0)  # 計算波動度係數
                                 base_mult = 2.0 if dy_a10 < -0.03 else 1.0  # 基礎乘數
                                 u = round(min(2.5, max(0.5, base_mult * atr_ratio)), 2)  # 調制手數
+                                if dy_a10 < -0.04 and u < 1.0:  # 超強單邊空頭動能保底保護 (對齊 EA InpAlphaTrendFloor=1.0)
+                                    u = 1.0  # 強制保底至 1.0x
                                 new_p.append({'pyr': True, 'u': u, 'ed': ns, 'ep': no, 'sl': max(th, tph) + 1.0 * tatr, 'mae': 0.0})  # 加空
                         pos = new_p  # 更新持倉
                 else:  # 空手主空

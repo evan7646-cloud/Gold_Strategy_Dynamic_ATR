@@ -81,7 +81,7 @@ def calculate_atr(df, period=14):  # 計算真實波幅均值 ATR 函數
 def sanitize_list(lst):  # 替換 NaN 為 None (JSON null) 函數
     return [None if (v is None or pd.isna(v) or np.isnan(v)) else float(v) for v in lst]  # 遍歷替換
 
-def simulate_adaptive_direction(df, is_long_only=True, baseline_atr=16.0, alpha_floor=0.5):  # 51Bitquant 波動度自適應單向策略模擬子引擎
+def simulate_adaptive_direction(df, is_long_only=True, baseline_atr=16.0, alpha_floor=1.0):  # 51Bitquant 波動度自適應單向策略模擬子引擎 (alpha_floor 對齊 EA InpAlphaTrendFloor=1.0)
     n = len(df)  # 資料總筆數
     active_positions = []  # 當前持倉部位清單
     completed_trades = []  # 已完結交易記錄清單
@@ -359,8 +359,8 @@ def run_backtest():  # 執行自適應策略回測主程式
 
     # 執行 51Bitquant 波動度自適應回測 (基準 ATR = 16.0 點)
     baseline_atr_setting = 16.0  # 設定黃金 4H 基準 ATR
-    pos_l, trades_l, ann_l = simulate_adaptive_direction(df, is_long_only=True, baseline_atr=baseline_atr_setting)  # 模擬自適應多頭
-    pos_s, trades_s, ann_s = simulate_adaptive_direction(df, is_long_only=False, baseline_atr=baseline_atr_setting)  # 模擬自適應空頭
+    pos_l, trades_l, ann_l = simulate_adaptive_direction(df, is_long_only=True, baseline_atr=baseline_atr_setting, alpha_floor=1.0)  # 模擬自適應多頭 (alpha_floor=1.0 對齊 EA)
+    pos_s, trades_s, ann_s = simulate_adaptive_direction(df, is_long_only=False, baseline_atr=baseline_atr_setting, alpha_floor=1.0)  # 模擬自適應空頭 (alpha_floor=1.0 對齊 EA)
 
     all_active = pos_l + pos_s  # 聯集持倉
     all_trades = trades_l + trades_s  # 聯集交易
