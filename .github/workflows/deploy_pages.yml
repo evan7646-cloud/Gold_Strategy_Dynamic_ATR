@@ -1,0 +1,34 @@
+name: 🚀 Deploy Web Dashboard to GitHub Pages  # 工作流名稱：自動部署網頁至 GitHub Pages
+
+on:
+  push:
+    branches: ["main"]  # 當 main 分支有更新時自動觸發部署
+  workflow_dispatch:   # 允許於 GitHub Actions 介面手動點擊觸發
+
+permissions:
+  contents: read       # 賦予讀取儲存庫內容權限
+  pages: write         # 賦予寫入與更新 GitHub Pages 權限
+  id-token: write      # 賦予 OIDC 認證憑證權限
+
+concurrency:
+  group: "pages"       # 設置 Pages 部署任務組
+  cancel-in-progress: false  # 不中止正在進行的部署
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages  # 指定環境為 github-pages
+      url: ${{ steps.deployment.outputs.page_url }}  # 輸出部署完成的網址
+    runs-on: ubuntu-latest  # 使用 Ubuntu 虛擬環境
+    steps:
+      - name: ⬇️ Checkout repository  # 拉取倉庫最新程式碼
+        uses: actions/checkout@v4  # 使用官方 checkout action
+      - name: ⚙️ Setup Pages  # 初始化 GitHub Pages 設定
+        uses: actions/configure-pages@v5  # 配置 Pages 部署環境
+      - name: 📦 Upload artifact  # 上傳靜態網頁檔案
+        uses: actions/upload-pages-artifact@v3  # 上傳靜態資源包
+        with:
+          path: '.'  # 將專案根目錄全部作為網頁檔案上傳
+      - name: 🚀 Deploy to GitHub Pages  # 執行部署至 GitHub Pages
+        id: deployment  # 設定步驟識別代碼
+        uses: actions/deploy-pages@v4  # 執行正式發布
