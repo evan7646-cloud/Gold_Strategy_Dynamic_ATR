@@ -46695,20 +46695,5 @@
       "shape": "arrowUp",
       "color": "#26a69a"
     }
-  ],
-  "metrics_4yr": {
-    "total_trades": 1108,
-    "total_pnl_points": 2228.95,
-    "annual_pnl_points": 620.99,
-    "win_rate": 33.12,
-    "profit_factor": 1.26,
-    "max_drawdown": 530.95,
-    "current_drawdown": 319.56,
-    "current_drawdown_pct": 12.54,
-    "floating_drawdown_points": 693.63,
-    "max_instant_float_loss": -163.5,
-    "calmar_ratio": 1.17,
-    "sharpe_ratio": 0.95,
-    "years": 3.59
-  }
+  ]
 }
