@@ -44727,54 +44727,5 @@
       "shape": "arrowUp",
       "color": "#26a69a"
     }
-  ],
-  "metrics_4yr": {
-    "total_trades": 1012,
-    "total_pnl_points": 2062.7,
-    "annual_pnl_points": 569.46,
-    "win_rate": 34.78,
-    "profit_factor": 1.28,
-    "max_drawdown": 546.85,
-    "current_drawdown": 418.7,
-    "current_drawdown_pct": 16.87,
-    "floating_drawdown_points": 651.39,
-    "max_instant_float_loss": -188.88,
-    "max_instant_float_loss_close": -188.88,
-    "worst_pyramid_mae": -129.87,
-    "worst_single_mae": -397.09,
-    "calmar_ratio": 1.04,
-    "sharpe_ratio": 1.02,
-    "years": 3.62,
-    "data_start": "2023-01-11",
-    "data_end": "2026-08-26",
-    "data_source": "PEPPERSTONE:XAUUSD (原生 4H，券商時區網格，與 EA 網格不同)",
-    "cost_scenario_used": "razor_typical",
-    "cost_sensitivity": {
-      "razor_best": {
-        "total_pnl_points": 2305.65,
-        "max_drawdown": 489.24,
-        "win_rate": 35.08,
-        "profit_factor": 1.31
-      },
-      "razor_typical": {
-        "total_pnl_points": 2062.7,
-        "max_drawdown": 546.85,
-        "win_rate": 34.78,
-        "profit_factor": 1.28
-      },
-      "razor_stress": {
-        "total_pnl_points": 1274.24,
-        "max_drawdown": 854.48,
-        "win_rate": 32.91,
-        "profit_factor": 1.16
-      }
-    },
-    "comparison_with_watch": {
-      "baseline_is_comparable": false,
-      "mdd_watch": 907.0,
-      "mdd_reduction_pct": 39.7,
-      "floating_mdd_watch": 824.0,
-      "floating_mdd_reduction_pct": 20.9
-    }
-  }
+  ]
 }
