@@ -379,15 +379,19 @@ void UpdateDailyFilters() // 更新日線趨勢與加倉權限
 
    g_RegimeBull = (dailyCloseArray[0] > ma50Array[0]); // 牛市條件: 收盤價 > 日線 50MA
 
-   if(alphaOK) // 若 Alpha 計算成功 (同步最終版)
+   if(alphaOK) // 若 Alpha 計算成功
    { // 條件開頭
       g_PyramidLongOK  = (alpha1 > 0) && (alpha5 > 0) && (alpha10 > 0) && (ma20Array[0] > ma60Array[0]); // 加多條件
       g_PyramidShortOK = (alpha1 < 0) && (alpha5 < 0) && (alpha10 < 0) && (ma20Array[0] < ma60Array[0]); // 加空條件
    } // 條件結束
-   else // 若 Alpha 數據不可用 (回退純 MA 過濾，同步最終版)
+   else // 若 Alpha 數據不可用 -> 一律禁止加碼 (保守)
    { // 條件開頭
-      g_PyramidLongOK  = (ma20Array[0] > ma60Array[0]); // 回退純 MA 過濾器
-      g_PyramidShortOK = (ma20Array[0] < ma60Array[0]); // 回退純 MA 過濾器
+      // ⚠️ 原本在此回退為「純 MA 過濾」(ma20 > ma60)，但該條件比回測寬鬆許多，
+      //    會在缺少跨市場 Alpha 驗證的情況下放行加碼，與網頁回測邏輯不一致。
+      //    改為直接禁止加碼：寧可少賺，不可在資料缺失時放大部位。
+      g_PyramidLongOK  = false; // 禁止加多
+      g_PyramidShortOK = false; // 禁止加空
+      PrintFormat("⚠️ [Alpha 資料不可用] 已暫停加碼機制 (DXY=%s)，主部位邏輯不受影響", GetValidDXYSymbol()); // 印出警示日誌
    } // 條件結束
 
    g_DailyReady = true; // 標記日線過濾器就緒
@@ -676,9 +680,13 @@ void ProcessNew4HBar() // 新 4H K 線完結邏輯
          } // 條件結束
          else if(InpEnablePyramid && pyrTicket == 0 && g_RegimeBull && g_PyramidLongOK && !g_DailyHalted) // 滿足加多條件
          { // 條件開頭
-            g_trade.SetExpertMagicNumber(InpMagicPyramid); // 切換 Magic Number
             double a1 = 0, a5 = 0, a10 = 0; // Alpha 變數
-            CalculateAlpha(a1, a5, a10); // 計算當前 Alpha 動能
+            if(!CalculateAlpha(a1, a5, a10)) // Alpha 取不到則放棄本次加碼 (與 UpdateDailyFilters 的保守策略一致)
+            { // 條件開頭
+               Print("⚠️ [加多略過] Alpha 資料暫不可用，本次不執行加碼"); // 印出略過日誌
+               return; // 結束本次 4H 邏輯，不以殘缺數據放大部位
+            } // 條件結束
+            g_trade.SetExpertMagicNumber(InpMagicPyramid); // 切換 Magic Number
             double atr_safe = MathMax(atr4h, 4.0); // 確保 ATR 大於等於 4.0 點防止極端除零或過度放大
             double atr_ratio = InpBaselineATR / atr_safe; // 51Bitquant 核心：計算波動度倒數權重
             double base_mult = (a10 > InpAlphaBoostThresh) ? InpPyramidBoostMultiplier : 1.0; // 基礎乘數 (Alpha10 > 3% 為 2.0x，否則 1.0x)
@@ -735,9 +743,13 @@ void ProcessNew4HBar() // 新 4H K 線完結邏輯
          } // 條件結束
          else if(InpEnablePyramid && pyrTicket == 0 && !g_RegimeBull && g_PyramidShortOK && !g_DailyHalted) // 滿足加空條件
          { // 條件開頭
-            g_trade.SetExpertMagicNumber(InpMagicPyramid); // 切換 Magic Number
             double a1 = 0, a5 = 0, a10 = 0; // Alpha 變數
-            CalculateAlpha(a1, a5, a10); // 計算當前 Alpha 動能
+            if(!CalculateAlpha(a1, a5, a10)) // Alpha 取不到則放棄本次加碼 (與 UpdateDailyFilters 的保守策略一致)
+            { // 條件開頭
+               Print("⚠️ [加空略過] Alpha 資料暫不可用，本次不執行加碼"); // 印出略過日誌
+               return; // 結束本次 4H 邏輯，不以殘缺數據放大部位
+            } // 條件結束
+            g_trade.SetExpertMagicNumber(InpMagicPyramid); // 切換 Magic Number
             double atr_safe = MathMax(atr4h, 4.0); // 確保 ATR 大於等於 4.0 點防止極端除零或過度放大
             double atr_ratio = InpBaselineATR / atr_safe; // 51Bitquant 核心：計算波動度倒數權重
             double base_mult = (a10 < -InpAlphaBoostThresh) ? InpPyramidBoostMultiplier : 1.0; // 基礎乘數 (Alpha10 < -3% 為 2.0x，否則 1.0x)
@@ -858,7 +870,7 @@ void OnDeinit(const int reason) // EA 解除初始化函數
 void UpdateChartDashboard() // 更新圖表 HUD 儀表板
 { // 函數開頭
    double a1 = 0, a5 = 0, a10 = 0; // Alpha 變數
-   CalculateAlpha(a1, a5, a10); // 計算最新 Alpha 動能
+   bool hudAlphaOK = CalculateAlpha(a1, a5, a10); // 計算最新 Alpha 動能 (並保留成功與否供顯示)
    
    double curATR = 16.0; // 預設安全 ATR 值
    if(g_LastATR4H > 0.0) curATR = g_LastATR4H; // 顯示交易邏輯實際採用之 ATR (與回測同為算術平均，避免 HUD 與下單依據不一致)
@@ -899,7 +911,10 @@ void UpdateChartDashboard() // 更新圖表 HUD 儀表板
    hud += StringFormat(" 📈 大趨勢體制 (Regime 50SMA): %s\n", g_RegimeBull ? "🟢 牛市多頭 (Long Only)" : "🔴 熊市空頭 (Short Only)"); // 體制狀態資訊
    hud += StringFormat(" ⚡ 4H 14ATR 波動度: %.2f 點 (基準: %.1f 點) | %s\n", curATR, InpBaselineATR, volRisk); // 波動度即時狀態
    hud += StringFormat(" 🎯 51Bitquant 當前加碼乘數: %.2fx (範圍: %.1fx ~ %.1fx)\n", MathMin(InpMaxPyrMult, MathMax(InpMinPyrMult, InpPyramidBoostMultiplier * volScale)), InpMinPyrMult, InpMaxPyrMult); // 加碼乘數資訊
-   hud += StringFormat(" 🌐 Alpha 跨市場動能: 1D: %+.2f%% | 5D: %+.2f%% | 10D: %+.2f%%\n", a1 * 100.0, a5 * 100.0, a10 * 100.0); // 跨市場 Alpha 動能資訊
+   if(hudAlphaOK) // Alpha 可用時顯示實際數值
+      hud += StringFormat(" 🌐 Alpha 跨市場動能: 1D: %+.2f%% | 5D: %+.2f%% | 10D: %+.2f%%\n", a1 * 100.0, a5 * 100.0, a10 * 100.0); // 跨市場 Alpha 動能資訊
+   else // Alpha 不可用時明確標示，避免誤讀為 0.00%
+      hud += " 🌐 Alpha 跨市場動能: ⚠️ 資料不可用 (加碼機制已暫停)\n"; // Alpha 缺失警示
    hud += "──────────────────────────────────────────────────────────────────\n"; // 拼接資訊中隔線
    hud += StringFormat(" 🛡️ FTMO 每日風控 (4.5%%): SOD基準=$%.2f | 當日浮動=%+$.2f\n", g_SOD_Baseline, floatingLoss); // FTMO 當日風控基準
    hud += StringFormat(" 🚨 離 4.5%% 熔斷死線剩餘緩衝: $%.2f (%s)\n", buffer, g_DailyHalted ? "🔴 今日已熔斷停止交易" : "🟢 運行安全正常"); // 熔斷緩衝額度
