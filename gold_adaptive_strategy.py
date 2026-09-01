@@ -5,6 +5,9 @@ import pandas as pd  # 匯入 pandas 模組進行資料分析與表格處理
 import numpy as np  # 匯入 numpy 模組進行數值計算
 import matplotlib.pyplot as plt  # 匯入 matplotlib 繪製回測權益曲線圖
 from tvDatafeed import TvDatafeed, Interval  # 匯入 tvDatafeed 以抓取 TradingView 資料
+from cost_model import trade_cost_points, COST_SCENARIOS, DEFAULT_SCENARIO  # 匯入 Pepperstone Razor 成本模型 (點差/佣金/隔夜利息估計/停損滑價)
+from daily_align import attach_daily_features  # 匯入日線時間對齊模組 (消除未來函數並對齊 EA 的 iClose(PERIOD_D1,1) 語意)
+from ea_sizing import quantize_units  # 匯入 EA 手數量化模組 (對齊 EA NormalizeLot 的無條件捨去規則)
 
 def download_data(force=False):  # 定義下載數據的函數
     if not force and os.path.exists('comex_gc1!_4h.csv') and os.path.exists('comex_gc1!_daily.csv') and os.path.exists('iceus_dxy_daily.csv'):  # 若本地數據檔案皆已存在
@@ -81,7 +84,29 @@ def calculate_atr(df, period=14):  # 計算真實波幅均值 ATR 函數
 def sanitize_list(lst):  # 替換 NaN 為 None (JSON null) 函數
     return [None if (v is None or pd.isna(v) or np.isnan(v)) else float(v) for v in lst]  # 遍歷替換
 
-def simulate_adaptive_direction(df, is_long_only=True, baseline_atr=16.0, alpha_floor=1.0):  # 51Bitquant 波動度自適應單向策略模擬子引擎 (alpha_floor 對齊 EA InpAlphaTrendFloor=1.0)
+def compute_cost_sensitivity(all_trades):  # 成本情境敏感度分析：同一組交易 (進出場時間/方向/持倉天數/出場ATR皆不變)，
+    result = {}  # 只替換 Pepperstone 成本假設，揭露績效數字對成本假設的敏感程度
+    for scenario_name in COST_SCENARIOS:  # 遍歷 best/typical/stress 三種情境
+        pnl_list = []  # 該情境下的逐筆淨損益
+        for t in all_trades:  # 遍歷所有已完成交易
+            is_long = t['type'] == 'Long'  # 判斷方向
+            raw_pnl_unit = (t['exit_price'] - t['entry_price']) if is_long else (t['entry_price'] - t['exit_price'])  # 還原原始價差
+            holding_days = t['holding_hours'] / 24.0  # 還原持倉天數
+            cost_pts = trade_cost_points(is_long, holding_days, t['exit_reason'], t.get('atr_at_exit'), scenario_name)  # 依情境重算成本
+            pnl_list.append(round((raw_pnl_unit - cost_pts) * t['units'], 2))  # 記錄該情境淨損益
+        pnl_series = pd.Series(pnl_list)  # 轉為序列
+        cum = pnl_series.cumsum()  # 累積損益
+        win = pnl_series[pnl_series > 0]  # 獲利筆
+        loss = pnl_series[pnl_series < 0]  # 虧損筆
+        result[scenario_name] = {  # 記錄該情境指標
+            'total_pnl_points': round(float(pnl_series.sum()), 2),  # 總損益
+            'max_drawdown': round(float((cum.cummax() - cum).max()), 2) if len(cum) > 0 else 0.0,  # 最大回撤
+            'win_rate': round(len(win) / len(pnl_series) * 100, 2) if len(pnl_series) > 0 else 0.0,  # 勝率
+            'profit_factor': round(abs(win.sum() / loss.sum()), 2) if len(loss) > 0 and loss.sum() != 0 else 0.0,  # 盈虧比
+        }  # 情境結束
+    return result  # 回傳三情境對照結果
+
+def simulate_adaptive_direction(df, is_long_only=True, baseline_atr=16.0, alpha_floor=1.0, cost_scenario=DEFAULT_SCENARIO):  # 51Bitquant 波動度自適應單向策略模擬子引擎 (alpha_floor 對齊 EA InpAlphaTrendFloor=1.0)
     n = len(df)  # 資料總筆數
     active_positions = []  # 當前持倉部位清單
     completed_trades = []  # 已完結交易記錄清單
@@ -134,7 +159,8 @@ def simulate_adaptive_direction(df, is_long_only=True, baseline_atr=16.0, alpha_
                     for p in active_positions:  # 結算所有部位
                         holding_days = (pd.to_datetime(next_stamp).date() - pd.to_datetime(p['entry_date']).date()).days  # 持倉跨日天數
                         raw_pnl = next_open - p['entry_price']  # 原始價格差
-                        net_pnl_unit = raw_pnl - 0.3 - (holding_days * 0.75)  # 嚴格扣除 0.3 點差與每日 0.75 隔夜利息
+                        cost_pts = trade_cost_points(True, holding_days, exit_reason, t_atr, cost_scenario)  # Pepperstone Razor 點差+佣金+隔夜利息+滑價
+                        net_pnl_unit = raw_pnl - cost_pts  # 扣除交易成本
                         net_pnl = net_pnl_unit * p.get('units', 1.0)  # 加權淨損益
                         completed_trades.append({  # 記錄平倉明細
                             'type': 'Long', 'is_pyramid': p['is_pyramid'], 'units': p.get('units', 1.0),  # 執行策略運算
@@ -142,6 +168,7 @@ def simulate_adaptive_direction(df, is_long_only=True, baseline_atr=16.0, alpha_
                             'exit_date': next_stamp, 'exit_price': next_open,  # 執行策略運算
                             'stop_price': round(p['stop_price'], 2), 'pnl_points': round(net_pnl, 2),  # 執行策略運算
                             'mae_points': round(p.get('mae', 0.0), 2),  # 記錄單筆最大浮虧
+                            'atr_at_exit': round(float(t_atr), 2) if pd.notna(t_atr) else None,  # 記錄出場當下ATR (供成本情境敏感度分析用)
                             'holding_hours': holding_days * 24, 'exit_reason': exit_reason  # 執行策略運算
                         })  # 記錄結束
                         annotations.append({  # 圖表標記
@@ -159,7 +186,8 @@ def simulate_adaptive_direction(df, is_long_only=True, baseline_atr=16.0, alpha_
                         if t_close < p_pos['stop_price']:  # 觸發加多單獨立停損
                             holding_days = (pd.to_datetime(next_stamp).date() - pd.to_datetime(p_pos['entry_date']).date()).days  # 跨日天數
                             raw_pnl = next_open - p_pos['entry_price']  # 價差
-                            net_pnl_unit = raw_pnl - 0.3 - (holding_days * 0.75)  # 扣成本
+                            cost_pts = trade_cost_points(True, holding_days, 'Pyramid Stop Loss', t_atr, cost_scenario)  # 成本模型
+                            net_pnl_unit = raw_pnl - cost_pts  # 扣成本
                             net_pnl = net_pnl_unit * p_pos.get('units', 1.0)  # 加權淨損益
                             completed_trades.append({  # 記錄平倉加多單
                                 'type': 'Long', 'is_pyramid': True, 'units': p_pos.get('units', 1.0),  # 執行策略運算
@@ -167,6 +195,7 @@ def simulate_adaptive_direction(df, is_long_only=True, baseline_atr=16.0, alpha_
                                 'exit_date': next_stamp, 'exit_price': next_open,  # 執行策略運算
                                 'stop_price': round(p_pos['stop_price'], 2), 'pnl_points': round(net_pnl, 2),  # 執行策略運算
                                 'mae_points': round(p_pos.get('mae', 0.0), 2),  # 記錄加多單最大浮虧
+                                'atr_at_exit': round(float(t_atr), 2) if pd.notna(t_atr) else None,  # 記錄出場當下ATR
                                 'holding_hours': holding_days * 24, 'exit_reason': 'Pyramid Stop Loss'  # 執行策略運算
                             })  # 記錄結束
                             annotations.append({  # 圖表標記
@@ -182,11 +211,10 @@ def simulate_adaptive_direction(df, is_long_only=True, baseline_atr=16.0, alpha_
                             # ⚡ 51Bitquant 核心公式：加碼手數與波動度 (ATR) 成反比動態調制
                             atr_ratio = baseline_atr / max(t_atr, 4.0) if pd.notna(t_atr) and t_atr > 0 else 1.0  # 波動度倒數權重
                             base_mult = 2.0 if dy_a10 > 0.03 else 1.0  # Alpha10 > 3% 基準乘數
-                            calc_u = round(min(2.5, max(0.5, base_mult * atr_ratio)), 2)  # 動態調制手數 (0.5x~2.5x)
+                            calc_u = min(2.5, max(0.5, base_mult * atr_ratio))  # 動態調制手數 (0.5x~2.5x)
                             if dy_a10 > 0.04 and calc_u < alpha_floor:  # 超強單邊動能保底保護
-                                pyr_units = alpha_floor  # 保底手數
-                            else:  # 標準動態手數
-                                pyr_units = calc_u  # 動態手數
+                                calc_u = alpha_floor  # 保底手數
+                            pyr_units = quantize_units(calc_u)  # 依 EA NormalizeLot 規則量化為實際可下單倍率
                             new_active.append({  # 建立加多單
                                 'type': 'Long', 'is_pyramid': True, 'units': pyr_units, 'entry_date': next_stamp,  # 執行策略運算
                                 'entry_price': next_open, 'stop_price': min(t_low, t_prev_low) - 1.0 * t_atr, 'mae': 0.0  # 執行策略運算
@@ -218,7 +246,8 @@ def simulate_adaptive_direction(df, is_long_only=True, baseline_atr=16.0, alpha_
                     for p in active_positions:  # 結算空單
                         holding_days = (pd.to_datetime(next_stamp).date() - pd.to_datetime(p['entry_date']).date()).days  # 持倉天數
                         raw_pnl = p['entry_price'] - next_open  # 空單價格差
-                        net_pnl_unit = raw_pnl - 0.3 + (holding_days * 0.27)  # 扣除 0.3 點差並增加每日 0.27 隔夜正利息
+                        cost_pts = trade_cost_points(False, holding_days, exit_reason, t_atr, cost_scenario)  # Pepperstone Razor 點差+佣金+隔夜利息+滑價
+                        net_pnl_unit = raw_pnl - cost_pts  # 扣除交易成本
                         net_pnl = net_pnl_unit * p.get('units', 1.0)  # 加權淨損益
                         completed_trades.append({  # 記錄平倉明細
                             'type': 'Short', 'is_pyramid': p['is_pyramid'], 'units': p.get('units', 1.0),  # 執行策略運算
@@ -226,6 +255,7 @@ def simulate_adaptive_direction(df, is_long_only=True, baseline_atr=16.0, alpha_
                             'exit_date': next_stamp, 'exit_price': next_open,  # 執行策略運算
                             'stop_price': round(p['stop_price'], 2), 'pnl_points': round(net_pnl, 2),  # 執行策略運算
                             'mae_points': round(p.get('mae', 0.0), 2),  # 記錄單筆最大浮虧
+                            'atr_at_exit': round(float(t_atr), 2) if pd.notna(t_atr) else None,  # 記錄出場當下ATR (供成本情境敏感度分析用)
                             'holding_hours': holding_days * 24, 'exit_reason': exit_reason  # 執行策略運算
                         })  # 記錄結束
                         annotations.append({  # 圖表標記
@@ -243,7 +273,8 @@ def simulate_adaptive_direction(df, is_long_only=True, baseline_atr=16.0, alpha_
                         if t_close > p_pos['stop_price']:  # 觸發加空停損
                             holding_days = (pd.to_datetime(next_stamp).date() - pd.to_datetime(p_pos['entry_date']).date()).days  # 天數
                             raw_pnl = p_pos['entry_price'] - next_open  # 價差
-                            net_pnl_unit = raw_pnl - 0.3 + (holding_days * 0.27)  # 扣點差加利息
+                            cost_pts = trade_cost_points(False, holding_days, 'Pyramid Stop Loss', t_atr, cost_scenario)  # 成本模型
+                            net_pnl_unit = raw_pnl - cost_pts  # 扣成本
                             net_pnl = net_pnl_unit * p_pos.get('units', 1.0)  # 加權淨損益
                             completed_trades.append({  # 記錄加空平倉
                                 'type': 'Short', 'is_pyramid': True, 'units': p_pos.get('units', 1.0),  # 執行策略運算
@@ -251,6 +282,7 @@ def simulate_adaptive_direction(df, is_long_only=True, baseline_atr=16.0, alpha_
                                 'exit_date': next_stamp, 'exit_price': next_open,  # 執行策略運算
                                 'stop_price': round(p_pos['stop_price'], 2), 'pnl_points': round(net_pnl, 2),  # 執行策略運算
                                 'mae_points': round(p_pos.get('mae', 0.0), 2),  # 記錄加空單最大浮虧
+                                'atr_at_exit': round(float(t_atr), 2) if pd.notna(t_atr) else None,  # 記錄出場當下ATR
                                 'holding_hours': holding_days * 24, 'exit_reason': 'Pyramid Stop Loss'  # 執行策略運算
                             })  # 記錄結束
                             annotations.append({  # 圖表標記
@@ -265,11 +297,10 @@ def simulate_adaptive_direction(df, is_long_only=True, baseline_atr=16.0, alpha_
                         if dy_close < dy_ma50 and dy_pyramid_short:  # 滿足加空條件
                             atr_ratio = baseline_atr / max(t_atr, 4.0) if pd.notna(t_atr) and t_atr > 0 else 1.0  # 波動度倒數權重
                             base_mult = 2.0 if dy_a10 < -0.03 else 1.0  # Alpha10 < -3% 基準乘數
-                            calc_u = round(min(2.5, max(0.5, base_mult * atr_ratio)), 2)  # 動態調制手數 (0.5x~2.5x)
+                            calc_u = min(2.5, max(0.5, base_mult * atr_ratio))  # 動態調制手數 (0.5x~2.5x)
                             if dy_a10 < -0.04 and calc_u < alpha_floor:  # 超強單邊空頭動能保底保護
-                                pyr_units = alpha_floor  # 保底手數
-                            else:  # 標準動態手數
-                                pyr_units = calc_u  # 動態手數
+                                calc_u = alpha_floor  # 保底手數
+                            pyr_units = quantize_units(calc_u)  # 依 EA NormalizeLot 規則量化為實際可下單倍率
                             new_active.append({  # 建立加空單
                                 'type': 'Short', 'is_pyramid': True, 'units': pyr_units, 'entry_date': next_stamp,  # 執行策略運算
                                 'entry_price': next_open, 'stop_price': max(t_high, t_prev_high) + 1.0 * t_atr, 'mae': 0.0  # 執行策略運算
@@ -324,30 +355,24 @@ def run_backtest():  # 執行自適應策略回測主程式
 
     df_daily['date'] = df_daily['timestamp'].dt.date  # 提取日期
 
-    df_daily['daily_close_avail'] = df_daily['gold_close'].shift(1)  # T-1 日收
-    df_daily['daily_ma50_avail'] = df_daily['ma50'].shift(1)  # T-1 50MA
-    df_daily['daily_ma20_avail'] = df_daily['ma20'].shift(1)  # T-1 20MA
-    df_daily['daily_ma60_avail'] = df_daily['ma60'].shift(1)  # T-1 60MA
-    df_daily['daily_alpha1_avail'] = df_daily['alpha_1'].shift(1)  # T-1 Alpha1
-    df_daily['daily_alpha5_avail'] = df_daily['alpha_5'].shift(1)  # T-1 Alpha5
-    df_daily['daily_alpha10_avail'] = df_daily['alpha_10'].shift(1)  # T-1 Alpha10
+    # 日線特徵改用「時間對齊」掛載 (取代原本的日曆日期 join + shift(1))
+    # 原作法會讓每天第一根 4H K 線偷看到尚未收盤的日線，且與 EA 的 iClose(PERIOD_D1,1) 差一個交易日
+    df_daily['daily_close_avail'] = df_daily['gold_close']  # 日收 (由 as-of join 保證已完結)
+    df_daily['daily_ma50_avail'] = df_daily['ma50']  # 50MA
+    df_daily['daily_ma20_avail'] = df_daily['ma20']  # 20MA
+    df_daily['daily_ma60_avail'] = df_daily['ma60']  # 60MA
+    df_daily['daily_alpha1_avail'] = df_daily['alpha_1']  # Alpha1
+    df_daily['daily_alpha5_avail'] = df_daily['alpha_5']  # Alpha5
+    df_daily['daily_alpha10_avail'] = df_daily['alpha_10']  # Alpha10
 
     gold_4h['timestamp'] = pd.to_datetime(gold_4h['timestamp'])  # 轉 datetime
     gold_4h = gold_4h.sort_values('timestamp').reset_index(drop=True)  # 排序
     gold_4h['date'] = gold_4h['timestamp'].dt.date  # 提取日期
 
-    df = pd.merge(gold_4h, df_daily[[  # 合併日線數據
-        'date', 'daily_close_avail', 'daily_ma50_avail', 'daily_ma20_avail', 'daily_ma60_avail',  # 執行策略運算
-        'daily_alpha1_avail', 'daily_alpha5_avail', 'daily_alpha10_avail'  # 執行策略運算
-    ]], on='date', how='left')  # 左連結
-
-    df['daily_close_avail'] = df['daily_close_avail'].ffill()  # 前向填充
-    df['daily_ma50_avail'] = df['daily_ma50_avail'].ffill()  # 前向填充
-    df['daily_ma20_avail'] = df['daily_ma20_avail'].ffill()  # 前向填充
-    df['daily_ma60_avail'] = df['daily_ma60_avail'].ffill()  # 前向填充
-    df['daily_alpha1_avail'] = df['daily_alpha1_avail'].ffill()  # 前向填充
-    df['daily_alpha5_avail'] = df['daily_alpha5_avail'].ffill()  # 前向填充
-    df['daily_alpha10_avail'] = df['daily_alpha10_avail'].ffill()  # 前向填充
+    df = attach_daily_features(gold_4h, df_daily, [  # 以 4H 收盤時間 as-of 對齊已完結之日線
+        'daily_close_avail', 'daily_ma50_avail', 'daily_ma20_avail', 'daily_ma60_avail',  # 日線價格與均線特徵
+        'daily_alpha1_avail', 'daily_alpha5_avail', 'daily_alpha10_avail'  # 跨市場 Alpha 特徵
+    ])  # 對齊完成
 
     df['ma30_4h'] = df['close'].rolling(30).mean()  # 4H 30MA
     df['atr14_4h'] = calculate_atr(df, 14)  # 4H 14ATR
@@ -473,6 +498,7 @@ def run_backtest():  # 執行自適應策略回測主程式
 
     unrealized_pnl_sum = sum([p['unrealized_pnl'] for p in current_status['active_positions']]) if current_status.get('active_positions') else 0.0  # 未平倉損益
     realtime_total_pnl = round(total_pnl + unrealized_pnl_sum, 2)  # 即時總點數
+    cost_sensitivity = compute_cost_sensitivity(all_trades)  # Pepperstone 成本情境敏感度 (best/typical/stress)
 
     metrics = {  # 指標字典
         'total_trades': len(all_trades),  # 總筆數
@@ -492,19 +518,24 @@ def run_backtest():  # 執行自適應策略回測主程式
         'calmar_ratio': calmar_ratio,  # 卡瑪比率
         'sharpe_ratio': sharpe_ratio,  # 夏普比率
         'annual_pnl_points': round(annual_pnl, 2),  # 年化獲利點數
-        'comparison_with_watch': {  # 與原始固定版對照改善數據
+        'comparison_with_watch': {  # 與原始固定倉位版 (Watch) 對照
+            # ⚠️ 下列 *_watch 基準值產生於「舊成本模型 + 舊日線對齊」，與本次結果並非同基準，
+            #    僅供粗略參考；如需嚴謹對照，須以相同成本模型與對齊方式重跑原始版策略。
+            'baseline_is_comparable': False,  # 明確標記基準不可直接比較
             'pnl_watch': 5090.59,  # 原始獲利
             'mdd_watch': 475.89,  # 原始回撤
-            'mdd_reduction_pct': 32.4,  # 回撤降低比例
+            'mdd_reduction_pct': round((475.89 - max_drawdown) / 475.89 * 100, 1),  # 回撤降低比例 (動態計算)
             'floating_mdd_watch': 837.81,  # 原始浮動回撤
-            'floating_mdd_reduction_pct': 30.6,  # 浮動回撤降低比例
+            'floating_mdd_reduction_pct': round((837.81 - floating_drawdown_pts) / 837.81 * 100, 1),  # 浮動回撤降低比例 (動態計算)
             'instant_float_loss_watch': -392.10,  # 原始單點浮虧
-            'instant_float_loss_reduction_pct': 61.3,  # 浮虧降低比例
+            'instant_float_loss_reduction_pct': round((392.10 - abs(max_instant_float_loss_close)) / 392.10 * 100, 1),  # 浮虧降低比例 (動態計算)
             'pyr_mae_watch': -382.92,  # 原始加碼最大浮虧
-            'pyr_mae_reduction_pct': 75.0,  # 加碼浮虧降低比例
+            'pyr_mae_reduction_pct': round((382.92 - abs(worst_pyramid_mae)) / 382.92 * 100, 1),  # 加碼浮虧降低比例 (動態計算)
             'calmar_watch': 6.58,  # 原始卡瑪
-            'calmar_improvement_pct': 13.1  # 卡瑪提升比例
-        }  # 對照結束
+            'calmar_improvement_pct': round((calmar_ratio - 6.58) / 6.58 * 100, 1)  # 卡瑪提升比例 (動態計算)
+        },  # 對照結束
+        'cost_scenario_used': DEFAULT_SCENARIO,  # 本次主要指標所用的成本情境
+        'cost_sensitivity': cost_sensitivity  # Pepperstone Razor 帳戶 best/typical/stress 三情境敏感度對照 (swap/滑價為非官方保守估計，僅供參考)
     }  # 指標結束
 
     gold_chart_data = {  # 圖表數據
@@ -566,13 +597,20 @@ def run_backtest():  # 執行自適應策略回測主程式
     print(f" • 總累積淨損益:       +{total_pnl:.2f} 點")  # 輸出獲利
     print(f" • 總成交筆數:         {len(all_trades)} 筆 (勝率: {win_rate}%)")  # 輸出筆數與勝率
     print(f" • 盈虧比 (PF):        {profit_factor}")  # 輸出盈虧比
-    print(f" • 已平倉最大回撤:     {max_drawdown:.2f} 點 (回撤縮小 32.4%！當前回撤: {current_drawdown_pct}%)")  # 輸出回撤
-    print(f" • 浮動淨值最大回撤:   {floating_drawdown_pts:.2f} 點 (回撤縮小 30.6%！)")  # 輸出浮動回撤
-    print(f" • 單點最大浮動虧損:   {max_instant_float_loss_close:.2f} 點 (收盤) / {max_instant_float_loss_worst:.2f} 點 (影線) (浮虧暴降 61.3%！)")  # 輸出單點浮虧
-    print(f" • 加碼單最大逆向浮虧: {worst_pyramid_mae:.2f} 點 (加碼浮虧縮小 75.0%！)")  # 輸出加碼浮虧
+    cmp_w = metrics['comparison_with_watch']  # 取出與原始版對照數據 (百分比皆為動態計算)
+    print(f" • 已平倉最大回撤:     {max_drawdown:.2f} 點 (較原始版降 {cmp_w['mdd_reduction_pct']}%；當前回撤: {current_drawdown_pct}%)")  # 輸出回撤
+    print(f" • 浮動淨值最大回撤:   {floating_drawdown_pts:.2f} 點 (較原始版降 {cmp_w['floating_mdd_reduction_pct']}%)")  # 輸出浮動回撤
+    print(f" • 單點最大浮動虧損:   {max_instant_float_loss_close:.2f} 點 (收盤) / {max_instant_float_loss_worst:.2f} 點 (影線) (較原始版降 {cmp_w['instant_float_loss_reduction_pct']}%)")  # 輸出單點浮虧
+    print(f" • 加碼單最大逆向浮虧: {worst_pyramid_mae:.2f} 點 (較原始版降 {cmp_w['pyr_mae_reduction_pct']}%)")  # 輸出加碼浮虧
+    print("   ⚠️ 上述對照基準來自舊成本模型與舊日線對齊，非同基準比較，僅供粗略參考")  # 明確標註基準不可直接比較
     print(f" • 卡瑪比率 (Calmar):   {calmar_ratio} (年化獲利: {annual_pnl:.1f} 點/年)")  # 輸出卡瑪比率
     print(f" • 夏普比率 (Sharpe):   {sharpe_ratio}")  # 輸出夏普值
     print(" • 已輸出檔案: strategy_results.json, all_trades_detail_adaptive.csv, backtest_equity_curve_adaptive.png")  # 輸出檔案清單
+    print("--------------------------------------------------------------------------")  # 分隔線
+    print(f" 💰 成本情境敏感度分析 (Pepperstone Razor 帳戶, 主指標採用: {DEFAULT_SCENARIO})")  # 標題
+    print("    ⚠️ 點差/佣金為官網公告數值；swap 與停損滑價為非官方保守估計，僅供參考")  # 警語
+    for sc_name, sc_val in cost_sensitivity.items():  # 遍歷三種情境
+        print(f"    - {sc_name:15s}: 總損益 {sc_val['total_pnl_points']:>9.2f} 點 | MDD {sc_val['max_drawdown']:>8.2f} 點 | 勝率 {sc_val['win_rate']:>6.2f}% | PF {sc_val['profit_factor']:>5.2f}")  # 輸出各情境
     print("==========================================================================\n")  # 結束分隔線
 
 if __name__ == '__main__':  # 程式主入口
