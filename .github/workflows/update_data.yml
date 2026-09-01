@@ -38,7 +38,7 @@ jobs:
       - name: 📊 Check if data changed  # 檢查檔案是否變更
         id: check_changes
         run: |
-          if [ -n "$(git status --porcelain strategy_results.json comex_gc1!_4h.csv comex_gc1!_daily.csv iceus_dxy_daily.csv)" ]; then
+          if [ -n "$(git status --porcelain strategy_results.json comex_gc1!_4h.csv comex_gc1!_daily.csv pepperstone_usdx_daily.csv)" ]; then
             echo "changed=true" >> $GITHUB_OUTPUT
           else
             echo "changed=false" >> $GITHUB_OUTPUT
@@ -49,7 +49,7 @@ jobs:
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add strategy_results.json comex_gc1!_4h.csv comex_gc1!_daily.csv iceus_dxy_daily.csv backtest_equity_curve_adaptive.png all_trades_detail_adaptive.csv
+          git add strategy_results.json comex_gc1!_4h.csv comex_gc1!_daily.csv pepperstone_usdx_daily.csv backtest_equity_curve_adaptive.png all_trades_detail_adaptive.csv
           git commit -m "🤖 Auto-update: 51Bitquant ATR Strategy Data $(date -u +'%Y-%m-%d %H:%M UTC')"
           git push
 
