@@ -128,6 +128,19 @@
 
         </section> <!-- 統計卡片網格結束 -->
 
+        <!-- 近期滾動績效：市場 regime 變化快，長期累積數字會掩蓋近期是否開始失效 -->
+        <section class="chart-section glass-panel" id="rolling-section"> <!-- 滾動績效面板 -->
+            <div class="panel-header"> <!-- 面板標題列 -->
+                <div class="panel-title-group"> <!-- 標題群組 -->
+                    <h2>📅 近期滾動績效 (Rolling Performance)</h2> <!-- 區塊標題 -->
+                    <span class="panel-subinfo">以最新資料為基準往回推算，用於檢視策略近期是否開始失效；長期累積數字容易掩蓋近期變化</span> <!-- 說明 -->
+                </div> <!-- 群組結束 -->
+            </div> <!-- 標題列結束 -->
+            <div class="cards-grid" id="rolling-cards"> <!-- 滾動績效卡片容器 (由 app.js 動態產生) -->
+                <div class="card glass-card"><div class="card-main-val">—</div></div> <!-- 載入前佔位 -->
+            </div> <!-- 容器結束 -->
+        </section> <!-- 滾動績效區塊結束 -->
+
         <!-- 第二區：XAUUSD 4H 互動主圖表 -->
         <section class="chart-section glass-panel"> <!-- 主圖表面板區塊 -->
             <div class="panel-header"> <!-- 面板標題列 -->

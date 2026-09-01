@@ -67,6 +67,42 @@ function applyDatasetMode(mode) { // 套用指定數據集並繪製介面函數
     } // 判斷結束
 } // applyDatasetMode 結束
 
+function renderRollingPerformance(rolling) { // 渲染近期滾動績效卡片
+    const section = document.getElementById('rolling-section'); // 區塊容器
+    const grid = document.getElementById('rolling-cards'); // 卡片容器
+    if (!section || !grid) return; // 元素不存在則跳過
+    if (!rolling || Object.keys(rolling).length === 0) { // 無滾動績效資料 (例如長期模式)
+        section.style.display = 'none'; // 隱藏整個區塊，避免顯示空白或誤導
+        return; // 結束
+    } // 判斷結束
+    section.style.display = ''; // 顯示區塊
+
+    const labels = { last_3m: '近 3 個月', last_6m: '近 6 個月', last_12m: '近 12 個月' }; // 窗口名稱
+    let html = ''; // 累積 HTML
+    for (const key of ['last_3m', 'last_6m', 'last_12m']) { // 依序渲染三個窗口
+        const r = rolling[key]; // 該窗口資料
+        if (!r) continue; // 無資料跳過
+        const pnl = r.total_pnl_points; // 該窗口損益
+        const cls = pnl >= 0 ? 'positive-val' : 'negative-val'; // 損益配色
+        const sign = pnl >= 0 ? '+' : ''; // 正負號
+        html += `
+            <div class="card glass-card">
+                <div class="card-header-line">
+                    <span class="card-title">${labels[key]}</span>
+                    <span class="badge-mini">${r.total_trades} 筆</span>
+                </div>
+                <div class="card-main-val ${cls}">${sign}${pnl.toFixed(2)} pts</div>
+                <div class="card-detail">
+                    <div class="detail-row"><span>盈虧比 (PF):</span><strong>${r.profit_factor}</strong></div>
+                    <div class="detail-row"><span>勝率:</span><strong>${r.win_rate}%</strong></div>
+                    <div class="detail-row"><span>區間最大回撤:</span><strong>${r.max_drawdown.toFixed(2)} pts</strong></div>
+                    <div class="detail-row"><span>區間:</span><strong>${r.period_start} ~ ${r.period_end}</strong></div>
+                </div>
+            </div>`; // 卡片 HTML
+    } // 迴圈結束
+    grid.innerHTML = html; // 寫入容器
+} // renderRollingPerformance 結束
+
 function renderStatusCards(status, metrics, goldChartData, mode) { // 渲染頂部指標卡片數據函數
     const is2Yr = (mode === '2yr'); // 判斷是否為 2.1 年模式
     
@@ -157,6 +193,9 @@ function renderStatusCards(status, metrics, goldChartData, mode) { // 渲染頂�
     const elCurDD = document.getElementById('current-dd-val'); // 卡片4的目前回撤
     if (elCurDD) elCurDD.textContent = (typeof curDD === 'number' && typeof curDDPct === 'number') ? `-${curDD.toFixed(2)} pts (${curDDPct.toFixed(2)}%)` : '—'; // 同步顯示
     
+    // 4.5 近期滾動績效 (僅短期模式提供；長期模式隱藏該區塊)
+    renderRollingPerformance(metrics.rolling_performance);
+
     // 5. Alpha 動能與 FTMO 風控
     const a1 = (status.alpha_1d * 100).toFixed(1); // 1D Alpha
     const a5 = (status.alpha_5d * 100).toFixed(1); // 5D Alpha

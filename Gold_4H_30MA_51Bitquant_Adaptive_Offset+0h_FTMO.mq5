@@ -23,6 +23,11 @@ input double   InpMinPyrMult             = 0.5;              // 51Bitquant 自�
 input double   InpAlphaTrendFloor        = 1.0;              // 超強單邊趨勢加碼手數保底倍率 (預設 1.0x)
 input string   InpDXYSymbol              = "USDX";           // 美元指數圖表代號 (同步最終版預設 USDX)
 
+//--- 趨勢曲率過濾參數 (30MA 二次微分)
+input bool     InpEnableCurvature        = true;             // 是否啟用趨勢曲率過濾 (二次微分)
+input double   InpCurvatureThreshold     = 0.010;            // 曲率門檻：d2 <= -此值 視為動能急速衰竭，不進多單
+input int      InpCurvatureSpan          = 3;                // 微分跨度 (4H K棒數，實測 n=3 最佳)
+
 //--- 指標週期參數宣告 (修復未定義編譯錯誤)
 input int      InpMA4H_Period            = 30;               // 4H 均線 (SMA) 週期 (預設 30MA)
 input int      InpATR4H_Period           = 14;               // 4H ATR 週期 (預設 14ATR)
@@ -56,6 +61,7 @@ bool     g_PyramidLongOK    = false; // 日線是否允許加多
 bool     g_PyramidShortOK   = false; // 日線是否允許加空
 
 double   g_LastATR4H        = 0.0;   // 最近一次 4H 交易邏輯所用之 ATR (供 HUD 顯示，確保與下單邏輯同源)
+double   g_LastCurvature    = 0.0;   // 最近一次計算之 30MA 二次微分 (曲率)，供 HUD 顯示
 
 //--- 指標句柄全域變數
 int      g_hMA50D           = INVALID_HANDLE; // 日線 50SMA 句柄
@@ -297,6 +303,46 @@ void CheckAndResetDailySOD() // FTMO 每日風控邏輯
          return; // 結束
       } // 條件結束
    } // 條件結束
+} // 函數結束
+
+//+------------------------------------------------------------------+
+//| 於已合成之 4H 陣列上計算指定索引處的 SMA (BarsSMA)                  |
+//+------------------------------------------------------------------+
+double BarsSMA(const double &arr[], int endIdx, int period) // 陣列版 SMA
+{ // 函數開頭
+   if(endIdx - period + 1 < 0) return 0.0; // 資料不足回傳 0
+   double s = 0.0; // 累加值
+   for(int k = endIdx - period + 1; k <= endIdx; k++) s += arr[k]; // 累加區間收盤價
+   return s / period; // 回傳平均
+} // 函數結束
+
+//+------------------------------------------------------------------+
+//| 於已合成之 4H 陣列上計算指定索引處的算術平均 ATR (BarsATR)           |
+//+------------------------------------------------------------------+
+double BarsATR(const double &hArr[], const double &lArr[], const double &cArr[], int endIdx, int period) // 陣列版 ATR
+{ // 函數開頭
+   if(endIdx - period < 0) return 0.0; // 需有前一根收盤價，資料不足回傳 0
+   double s = 0.0; // TR 累加值
+   for(int k = endIdx - period + 1; k <= endIdx; k++) // 累加 period 根 TR
+   { // 迴圈開頭
+      double tr = MathMax(hArr[k] - lArr[k], MathMax(MathAbs(hArr[k] - cArr[k-1]), MathAbs(lArr[k] - cArr[k-1]))); // 真實波幅
+      s += tr; // 累加
+   } // 迴圈結束
+   return s / period; // 回傳算術平均 ATR
+} // 函數結束
+
+//+------------------------------------------------------------------+
+//| 計算 30MA 二次微分 (曲率) CalcCurvature                            |
+//| d1 = (ma[i] - ma[i-n]) / n / ATR[i]   一次微分，以 ATR 正規化       |
+//| d2 = (d1[i] - d1[i-n]) / n            二次微分 (加速度)            |
+//| d2 明顯為負代表上升動能急速衰竭，趨勢可能翻轉，此時不進多單。        |
+//+------------------------------------------------------------------+
+double CalcCurvature(double maNow, double maPrev, double maPrev2, double atrNow, double atrPrev, int span) // 計算曲率
+{ // 函數開頭
+   if(atrNow <= 0.0 || atrPrev <= 0.0 || span <= 0) return 0.0; // 防除零，回傳 0 表示不過濾
+   double d1Now  = (maNow  - maPrev)  / span / atrNow;  // 當期一次微分
+   double d1Prev = (maPrev - maPrev2) / span / atrPrev; // 前期一次微分
+   return (d1Now - d1Prev) / span; // 回傳二次微分
 } // 函數結束
 
 //+------------------------------------------------------------------+
@@ -568,37 +614,34 @@ void ReconstructStopPrices() // 重構移動停損價
 void ProcessNew4HBar() // 新 4H K 線完結邏輯
 { // 函數開頭
    double c1, c2, h1, l1, h2, l2, ma4h, atr4h; // 宣告核心 OHLC 與指標變數
+   double curvature = 0.0; // 30MA 二次微分 (曲率)，預設 0 表示不觸發過濾
 
    if(_Period == PERIOD_H1) // 圖表為 1H 時採用 UTC +0h 合成數據
    { // 條件開頭
-      double oBars[35], hBars[35], lBars[35], cBars[35]; // 宣告暫存陣列
-      if(!GetUTC0h4H_BarData(35, oBars, hBars, lBars, cBars)) // 合成 35 根 +0h 4H K線
+      // 需額外 2*Span 根歷史才能算出二次微分，故合成 41 根 (最新完結者為索引 40)
+      double oBars[41], hBars[41], lBars[41], cBars[41]; // 宣告暫存陣列
+      if(!GetUTC0h4H_BarData(41, oBars, hBars, lBars, cBars)) // 合成 41 根 +0h 4H K線
       { // 條件開頭
          Print("⚠️ [+0h 數據合成中] 等待 1H 數據加載..."); // 印出提示
          return; // 數據未就緒跳過
       } // 條件結束
 
-      c1 = cBars[34]; // bar[1] 完結 4H 收盤價
-      c2 = cBars[33]; // bar[2] 完結 4H 收盤價
-      h1 = hBars[34]; // bar[1] 完結 4H 最高價
-      l1 = lBars[34]; // bar[1] 完結 4H 最低價
-      h2 = hBars[33]; // bar[2] 完結 4H 最高價
-      l2 = lBars[33]; // bar[2] 完結 4H 最低價
+      int last = 40; // 最新完結之 4H K 線索引
+      c1 = cBars[last];     // bar[1] 完結 4H 收盤價
+      c2 = cBars[last - 1]; // bar[2] 完結 4H 收盤價
+      h1 = hBars[last];     // bar[1] 完結 4H 最高價
+      l1 = lBars[last];     // bar[1] 完結 4H 最低價
+      h2 = hBars[last - 1]; // bar[2] 完結 4H 最高價
+      l2 = lBars[last - 1]; // bar[2] 完結 4H 最低價
 
-      double sumClose = 0; // 30MA 累積和
-      for(int k = 5; k < 35; k++) sumClose += cBars[k]; // 累加前 30 根 4H 收盤價
-      ma4h = sumClose / 30.0; // 4H 30MA 值
+      ma4h  = BarsSMA(cBars, last, InpMA4H_Period);                        // 4H 30MA
+      atr4h = BarsATR(hBars, lBars, cBars, last, InpATR4H_Period);         // 4H 14ATR (算術平均)
 
-      double sumTR = 0; // 14ATR 累積和
-      for(int k = 21; k < 35; k++) // 累加 14 根 TR
-      { // 迴圈開頭
-         double tr1 = hBars[k] - lBars[k]; // 高低差
-         double tr2 = MathAbs(hBars[k] - cBars[k-1]); // 高前收差
-         double tr3 = MathAbs(lBars[k] - cBars[k-1]); // 低前收差
-         double tr  = MathMax(tr1, MathMax(tr2, tr3)); // 取 TR
-         sumTR += tr; // 累加
-      } // 迴圈結束
-      atr4h = sumTR / 14.0; // 4H 14ATR 值
+      int sp = InpCurvatureSpan; // 微分跨度
+      double maPrev  = BarsSMA(cBars, last - sp, InpMA4H_Period);          // sp 根前的 30MA
+      double maPrev2 = BarsSMA(cBars, last - 2 * sp, InpMA4H_Period);      // 2*sp 根前的 30MA
+      double atrPrev = BarsATR(hBars, lBars, cBars, last - sp, InpATR4H_Period); // sp 根前的 ATR
+      curvature = CalcCurvature(ma4h, maPrev, maPrev2, atr4h, atrPrev, sp); // 計算二次微分
    } // 條件結束
    else // 原 H4 圖表相容模式
    { // 條件開頭
@@ -615,11 +658,24 @@ void ProcessNew4HBar() // 新 4H K 線完結邏輯
       l2 = iLow(_Symbol, PERIOD_H4, 2);   // bar[2] 最低價
       ma4h = ma4hArray[0]; // 4H MA 值
       atr4h = simpleATR; // 4H ATR 值 (算術平均，對齊回測)
+
+      int sp4 = InpCurvatureSpan; // 微分跨度
+      double maPrevArr[1], maPrev2Arr[1]; // 前期 MA 快取
+      if(CopyBuffer(g_hMA4H, 0, 1 + sp4, 1, maPrevArr) > 0 && CopyBuffer(g_hMA4H, 0, 1 + 2 * sp4, 1, maPrev2Arr) > 0) // 讀取前期 30MA
+      { // 條件開頭
+         double atrPrev4 = CalcSimpleATR_H4(1 + sp4, InpATR4H_Period); // sp 根前的 ATR
+         curvature = CalcCurvature(ma4h, maPrevArr[0], maPrev2Arr[0], atr4h, atrPrev4, sp4); // 計算二次微分
+      } // 條件結束
    } // 條件結束
 
    g_LastATR4H = atr4h; // 快取本次交易邏輯所用之 ATR (供 HUD 顯示同源數值)
 
-   bool sig_long_4h = (c1 > ma4h) && (c1 > c2); // 4H 多頭訊號 (Close > 30MA 且動能 > 0)
+   g_LastCurvature = curvature; // 快取供 HUD 顯示
+
+   // 4H 多頭訊號：Close > 30MA 且動能 > 0，並加入曲率過濾
+   // 曲率 <= -門檻代表上升動能急速衰竭，此時不進多單 (空單條件為多頭訊號之反面，故同時放行做空)
+   bool curvatureOK = (!InpEnableCurvature) || (curvature > -InpCurvatureThreshold); // 曲率過濾判定
+   bool sig_long_4h = (c1 > ma4h) && (c1 > c2) && curvatureOK; // 4H 多頭訊號
 
    double longStopInit  = MathMin(l1, l2) - 1.0 * atr4h; // 初始多單停損價
    double shortStopInit = MathMax(h1, h2) + 1.0 * atr4h; // 初始空單停損價
@@ -915,6 +971,12 @@ void UpdateChartDashboard() // 更新圖表 HUD 儀表板
       hud += StringFormat(" 🌐 Alpha 跨市場動能: 1D: %+.2f%% | 5D: %+.2f%% | 10D: %+.2f%%\n", a1 * 100.0, a5 * 100.0, a10 * 100.0); // 跨市場 Alpha 動能資訊
    else // Alpha 不可用時明確標示，避免誤讀為 0.00%
       hud += " 🌐 Alpha 跨市場動能: ⚠️ 資料不可用 (加碼機制已暫停)\n"; // Alpha 缺失警示
+   if(InpEnableCurvature) // 顯示曲率過濾狀態
+   { // 條件開頭
+      bool cvOK = (g_LastCurvature > -InpCurvatureThreshold); // 是否通過曲率過濾
+      hud += StringFormat(" 📐 30MA 曲率(二次微分): %+.4f (門檻 -%.3f) | %s\n", g_LastCurvature, InpCurvatureThreshold,
+                          cvOK ? "🟢 動能正常，多單訊號可成立" : "🔴 動能衰竭中，暫停多單"); // 曲率狀態
+   } // 條件結束
    hud += "──────────────────────────────────────────────────────────────────\n"; // 拼接資訊中隔線
    hud += StringFormat(" 🛡️ FTMO 每日風控 (4.5%%): SOD基準=$%.2f | 當日浮動=%+$.2f\n", g_SOD_Baseline, floatingLoss); // FTMO 當日風控基準
    hud += StringFormat(" 🚨 離 4.5%% 熔斷死線剩餘緩衝: $%.2f (%s)\n", buffer, g_DailyHalted ? "🔴 今日已熔斷停止交易" : "🟢 運行安全正常"); // 熔斷緩衝額度

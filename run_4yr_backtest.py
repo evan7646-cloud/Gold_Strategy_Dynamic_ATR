@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt  # 匯入 matplotlib 繪製 4 年權益圖
 from cost_model import trade_cost_points, COST_SCENARIOS, DEFAULT_SCENARIO  # 匯入 Pepperstone Razor 成本模型
 from daily_align import attach_daily_features  # 匯入日線時間對齊模組 (消除未來函數並對齊 EA 的 iClose(PERIOD_D1,1) 語意)
 from ea_sizing import quantize_units  # 匯入 EA 手數量化模組 (對齊 EA NormalizeLot 的無條件捨去規則)
+from trend_filter import add_curvature, curvature_pass, CURVATURE_THRESHOLD  # 匯入趨勢曲率過濾 (30MA 二次微分)
 
 def calculate_atr(df, period=14):  # 計算真實波幅均值 ATR 函數
     high = df['high']  # 最高價
@@ -87,7 +88,9 @@ def run_4yr_adaptive_backtest():  # 執行 4 年全數據回測
     df['ma30_4h'] = df['close'].rolling(30).mean()  # 4H 30MA
     df['atr14_4h'] = calculate_atr(df, 14)  # 4H 14ATR
     df['dy_raw'] = df['close'].diff()  # 一階差
-    df['sig_long_4h'] = (df['close'] > df['ma30_4h']) & (df['dy_raw'] > 0)  # 多頭訊號
+    df = add_curvature(df)  # 計算 30MA 一次/二次微分 (以 ATR 正規化)
+    # 曲率過濾：d2 <= -門檻代表上升動能急速衰竭，不進多單 (實測為唯一有效的趨勢性過濾)
+    df['sig_long_4h'] = (df['close'] > df['ma30_4h']) & (df['dy_raw'] > 0) & curvature_pass(df)  # 4H 多頭訊號 (含曲率過濾)
     df = df.dropna().reset_index(drop=True)  # 去除空值
 
     baseline_atr = 16.0  # 基準 ATR 設定 (16.0 點)

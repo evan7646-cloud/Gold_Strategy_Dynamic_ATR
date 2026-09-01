@@ -8,6 +8,7 @@ from tvDatafeed import TvDatafeed, Interval  # 匯入 tvDatafeed 以抓取 Tradi
 from cost_model import trade_cost_points, COST_SCENARIOS, DEFAULT_SCENARIO  # 匯入 Pepperstone Razor 成本模型 (點差/佣金/隔夜利息估計/停損滑價)
 from daily_align import attach_daily_features  # 匯入日線時間對齊模組 (消除未來函數並對齊 EA 的 iClose(PERIOD_D1,1) 語意)
 from ea_sizing import quantize_units  # 匯入 EA 手數量化模組 (對齊 EA NormalizeLot 的無條件捨去規則)
+from trend_filter import add_curvature, curvature_pass, CURVATURE_THRESHOLD  # 匯入趨勢曲率過濾 (30MA 二次微分)
 
 # 美元指數資料源：改用券商自身的 PEPPERSTONE:USDX，對齊 EA 參數 InpDXYSymbol="USDX"
 # (原本使用外部的 ICEUS:DXY 指數，與 EA 實際讀取的商品不同，且日線邊界與 XAUUSD 不一致)
@@ -92,6 +93,36 @@ def calculate_atr(df, period=14):  # 計算真實波幅均值 ATR 函數
 
 def sanitize_list(lst):  # 替換 NaN 為 None (JSON null) 函數
     return [None if (v is None or pd.isna(v) or np.isnan(v)) else float(v) for v in lst]  # 遍歷替換
+
+def compute_rolling_performance(all_trades, windows_months=(3, 6, 12)):  # 近期滾動績效：分段揭露最近 N 個月表現
+    """以最後一筆出場時間為基準往回推 N 個月，計算各區間績效。
+    市場 regime 變化快，長期累積數字會掩蓋近期是否開始失效，故獨立揭露。"""
+    if not all_trades:  # 無交易則回傳空結果
+        return {}  # 空字典
+    last_dt = pd.to_datetime(max(t['exit_date'] for t in all_trades))  # 資料最後時點
+    result = {}  # 各窗口結果
+    for months in windows_months:  # 遍歷每個回看窗口
+        cutoff = last_dt - pd.DateOffset(months=months)  # 起算時點
+        seg = [t for t in all_trades if pd.to_datetime(t['exit_date']) >= cutoff]  # 篩出窗口內交易
+        if not seg:  # 該窗口無交易
+            result[f'last_{months}m'] = {'total_trades': 0, 'total_pnl_points': 0.0, 'win_rate': 0.0,
+                                         'profit_factor': 0.0, 'max_drawdown': 0.0,
+                                         'period_start': str(cutoff.date()), 'period_end': str(last_dt.date())}  # 空值
+            continue  # 下一個窗口
+        pnl = pd.Series([t['pnl_points'] for t in seg])  # 該窗口損益序列
+        cum = pnl.cumsum()  # 累積損益
+        win = pnl[pnl > 0]  # 獲利筆
+        loss = pnl[pnl < 0]  # 虧損筆
+        result[f'last_{months}m'] = {  # 記錄該窗口指標
+            'total_trades': len(seg),  # 筆數
+            'total_pnl_points': round(float(pnl.sum()), 2),  # 總損益
+            'win_rate': round(len(win) / len(pnl) * 100, 2),  # 勝率
+            'profit_factor': round(abs(win.sum() / loss.sum()), 2) if len(loss) > 0 and loss.sum() != 0 else 0.0,  # 盈虧比
+            'max_drawdown': round(float((cum.cummax() - cum).max()), 2),  # 該區間最大回撤
+            'period_start': str(cutoff.date()),  # 區間起
+            'period_end': str(last_dt.date()),  # 區間迄
+        }  # 記錄結束
+    return result  # 回傳滾動績效
 
 def compute_cost_sensitivity(all_trades):  # 成本情境敏感度分析：同一組交易 (進出場時間/方向/持倉天數/出場ATR皆不變)，
     result = {}  # 只替換 Pepperstone 成本假設，揭露績效數字對成本假設的敏感程度
@@ -393,7 +424,9 @@ def run_backtest():  # 執行自適應策略回測主程式
     df['ma30_4h'] = df['close'].rolling(30).mean()  # 4H 30MA
     df['atr14_4h'] = calculate_atr(df, 14)  # 4H 14ATR
     df['dy_raw'] = df['close'].diff()  # 動能一階差
-    df['sig_long_4h'] = (df['close'] > df['ma30_4h']) & (df['dy_raw'] > 0)  # 4H 多頭訊號
+    df = add_curvature(df)  # 計算 30MA 一次/二次微分 (以 ATR 正規化)
+    # 曲率過濾：d2 <= -門檻代表上升動能急速衰竭，不進多單 (實測為唯一有效的趨勢性過濾)
+    df['sig_long_4h'] = (df['close'] > df['ma30_4h']) & (df['dy_raw'] > 0) & curvature_pass(df)  # 4H 多頭訊號 (含曲率過濾)
 
     df = df.dropna().reset_index(drop=True)  # 去除 NaN
     df = df[df['timestamp'] >= '2024-07-07'].reset_index(drop=True)  # 對齊正式回測起始期
@@ -515,6 +548,7 @@ def run_backtest():  # 執行自適應策略回測主程式
     unrealized_pnl_sum = sum([p['unrealized_pnl'] for p in current_status['active_positions']]) if current_status.get('active_positions') else 0.0  # 未平倉損益
     realtime_total_pnl = round(total_pnl + unrealized_pnl_sum, 2)  # 即時總點數
     cost_sensitivity = compute_cost_sensitivity(all_trades)  # Pepperstone 成本情境敏感度 (best/typical/stress)
+    rolling_perf = compute_rolling_performance(all_trades)  # 近期滾動績效 (近 3/6/12 個月)
 
     metrics = {  # 指標字典
         'total_trades': len(all_trades),  # 總筆數
@@ -555,7 +589,9 @@ def run_backtest():  # 執行自適應策略回測主程式
             'calmar_improvement_pct': round((calmar_ratio - 6.58) / 6.58 * 100, 1)  # 卡瑪提升比例 (動態計算)
         },  # 對照結束
         'cost_scenario_used': DEFAULT_SCENARIO,  # 本次主要指標所用的成本情境
-        'cost_sensitivity': cost_sensitivity  # Pepperstone Razor 帳戶 best/typical/stress 三情境敏感度對照 (swap/滑價為非官方保守估計，僅供參考)
+        'cost_sensitivity': cost_sensitivity,  # Pepperstone Razor 帳戶 best/typical/stress 三情境敏感度對照 (swap/滑價為非官方保守估計，僅供參考)
+        'rolling_performance': rolling_perf,  # 近 3/6/12 個月滾動績效 (揭露策略是否開始失效)
+        'curvature_filter': {'enabled': True, 'threshold': CURVATURE_THRESHOLD, 'span': 3}  # 趨勢曲率過濾設定
     }  # 指標結束
 
     gold_chart_data = {  # 圖表數據
