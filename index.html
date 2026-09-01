@@ -27,15 +27,15 @@
                         <span class="tag-pill tag-offset">+0h UTC 台北時間</span> <!-- 時區標籤 -->
                     </div> <!-- 標籤列結束 -->
                     <h1>XAUUSD 黃金 4H 30MA 波動度自適應調倉策略</h1> <!-- 主標題 -->
-                    <p class="subtitle">動態 ATR 逆反比部位管理 × 浮動虧損驟降 61% × 頂級抗回撤卡瑪比率 7.44</p> <!-- 副標題說明 -->
+                    <p class="subtitle" id="header-subtitle">動態 ATR 逆反比部位管理 × 波動度自適應調倉</p> <!-- 副標題說明 (績效數字由 app.js 動態填入) -->
                 </div> <!-- 文字區塊結束 -->
             </div> <!-- 標題 Icon 容器結束 -->
             
             <div class="header-right-controls"> <!-- 頂部右側控制區 -->
                 <!-- 回測數據週期切換開關 -->
                 <div class="dataset-switcher"> <!-- 數據集切換容器 -->
-                    <button id="btn-mode-2yr" class="btn-toggle active" onclick="switchDataset('2yr')">🟢 2.1年實盤回測 (546筆)</button> <!-- 2.1年切換按鈕 -->
-                    <button id="btn-mode-4yr" class="btn-toggle" onclick="switchDataset('4yr')">🌐 4年全歷史壓力測試 (1108筆)</button> <!-- 4年切換按鈕 -->
+                    <button id="btn-mode-2yr" class="btn-toggle active" onclick="switchDataset('2yr')">🟢 2.1年實盤回測 (<span id="btn-2yr-count">—</span>筆)</button> <!-- 2.1年切換按鈕 (筆數動態填入) -->
+                    <button id="btn-mode-4yr" class="btn-toggle" onclick="switchDataset('4yr')">🌐 4年全歷史壓力測試 (<span id="btn-4yr-count">—</span>筆)</button> <!-- 4年切換按鈕 (筆數動態填入) -->
                 </div> <!-- 切換容器結束 -->
 
                 <div class="system-status-pill"> <!-- 系統運行狀態標籤 -->
@@ -80,14 +80,14 @@
             <div class="card glass-card highlight-defense-card"> <!-- 亮色防禦強調卡片 -->
                 <div class="card-header-line"> <!-- 卡片頂部列 -->
                     <span class="card-title">🛡️ 浮動虧損防禦成效 (Risk Safeguard)</span> <!-- 卡片小標題 -->
-                    <span class="badge-mini badge-green">浮虧暴降 61.3% 🚀</span> <!-- 迷你亮點標籤 -->
+                    <span class="badge-mini badge-green" id="float-loss-badge">浮虧防禦 🚀</span> <!-- 迷你亮點標籤 -->
                 </div> <!-- 頂部列結束 -->
-                <div class="card-main-val defense-val" id="max-float-loss-val">-151.77 pts</div> <!-- 單點最大浮虧 -->
+                <div class="card-main-val defense-val" id="max-float-loss-val">— pts</div> <!-- 單點最大浮虧 -->
                 <div class="card-detail"> <!-- 防禦細節對比 -->
-                    <div class="detail-row"><span>單點最大未平倉浮虧:</span><strong id="float-loss-compare-val" class="highlight-green">-151.77 pts (降 61.3%)</strong></div> <!-- 浮虧對比 -->
-                    <div class="detail-row"><span>浮動淨值最大回撤:</span><strong id="floating-mdd-val" class="highlight-green">581.79 pts (降 30.6%)</strong></div> <!-- 浮動回撤 -->
-                    <div class="detail-row"><span>加碼單最大逆向浮虧:</span><strong id="pyr-mae-val" class="highlight-green">-95.73 pts (降 75.0%)</strong></div> <!-- 加碼單浮虧 -->
-                    <div class="detail-row"><span>目前已平倉回撤 (Current DD):</span><strong id="card3-current-dd-val" style="color: #ffb74d;">173.94 pts (4.28%)</strong></div> <!-- 目前回撤對比 -->
+                    <div class="detail-row"><span>單點最大未平倉浮虧:</span><strong id="float-loss-compare-val" class="highlight-green">—</strong></div> <!-- 浮虧對比 -->
+                    <div class="detail-row"><span>浮動淨值最大回撤:</span><strong id="floating-mdd-val" class="highlight-green">—</strong></div> <!-- 浮動回撤 -->
+                    <div class="detail-row"><span>加碼單最大逆向浮虧:</span><strong id="pyr-mae-val" class="highlight-green">—</strong></div> <!-- 加碼單浮虧 -->
+                    <div class="detail-row"><span>目前已平倉回撤 (Current DD):</span><strong id="card3-current-dd-val" style="color: #ffb74d;">—</strong></div> <!-- 目前回撤對比 -->
                 </div> <!-- 細節結束 -->
             </div> <!-- 卡片 3 結束 -->
 
@@ -97,13 +97,13 @@
                     <span class="card-title">🏆 總績效 & 卡瑪比率 (Calmar)</span> <!-- 卡片小標題 -->
                     <span class="badge-mini badge-gold" id="calmar-badge">頂級基金表現</span> <!-- 迷你金牌標籤 -->
                 </div> <!-- 頂部列結束 -->
-                <div class="card-main-val positive-val" id="total-pnl-val">+3,890.32 pts</div> <!-- 總累積損益 -->
+                <div class="card-main-val positive-val" id="total-pnl-val">— pts</div> <!-- 總累積損益 -->
                 <div class="card-detail"> <!-- 績效細節 -->
-                    <div class="detail-row"><span>卡瑪比率 (Calmar):</span><strong id="calmar-ratio-val" style="color: #ffd54f; font-size: 1.15em;">7.44</strong></div> <!-- 卡瑪比率 -->
-                    <div class="detail-row"><span>夏普比率 (Sharpe):</span><strong id="sharpe-ratio-val" style="color: #4fc3f7;">2.57</strong></div> <!-- 夏普比率 -->
-                    <div class="detail-row"><span>盈虧比 (PF) / 勝率:</span><strong id="pf-winrate-val">1.82 (40.5%)</strong></div> <!-- 盈虧比與勝率 -->
-                    <div class="detail-row"><span>歷史最大回撤 (MDD):</span><strong id="mdd-val">321.62 pts (降 32.4%)</strong></div> <!-- MDD -->
-                    <div class="detail-row"><span>目前已平倉回撤 (Current DD):</span><strong id="current-dd-val" style="color: #ffb74d;">173.94 pts (4.28%)</strong></div> <!-- 目前回撤 -->
+                    <div class="detail-row"><span>卡瑪比率 (Calmar):</span><strong id="calmar-ratio-val" style="color: #ffd54f; font-size: 1.15em;">—</strong></div> <!-- 卡瑪比率 -->
+                    <div class="detail-row"><span>夏普比率 (Sharpe):</span><strong id="sharpe-ratio-val" style="color: #4fc3f7;">—</strong></div> <!-- 夏普比率 -->
+                    <div class="detail-row"><span>盈虧比 (PF) / 勝率:</span><strong id="pf-winrate-val">—</strong></div> <!-- 盈虧比與勝率 -->
+                    <div class="detail-row"><span>歷史最大回撤 (MDD):</span><strong id="mdd-val">—</strong></div> <!-- MDD -->
+                    <div class="detail-row"><span>目前已平倉回撤 (Current DD):</span><strong id="current-dd-val" style="color: #ffb74d;">—</strong></div> <!-- 目前回撤 -->
                 </div> <!-- 績效細節結束 -->
             </div> <!-- 卡片 4 結束 -->
 
@@ -181,7 +181,7 @@
             <div class="panel-header"> <!-- 面板標題列 -->
                 <div class="panel-title-group"> <!-- 標題群組 -->
                     <h2>📋 已平倉交易歷史明細 (Completed Trades Explorer)</h2> <!-- 表格大標題 -->
-                    <span class="trades-count-pill" id="trades-count-badge">共 546 筆交易</span> <!-- 交易總筆數徽章 -->
+                    <span class="trades-count-pill" id="trades-count-badge">共 — 筆交易</span> <!-- 交易總筆數徽章 -->
                 </div> <!-- 群組結束 -->
                 
                 <!-- 篩選與搜尋工具列 -->
@@ -228,7 +228,7 @@
 
             <!-- 表格分頁控制列 -->
             <div class="table-pagination-row"> <!-- 分頁列容器 -->
-                <div class="pagination-info" id="pagination-info-text">顯示第 1 至 15 筆，共 546 筆</div> <!-- 分頁資訊 -->
+                <div class="pagination-info" id="pagination-info-text">載入中…</div> <!-- 分頁資訊 -->
                 <div class="pagination-controls"> <!-- 分頁按鈕組 -->
                     <button class="btn-page" id="btn-first-page">⏮ 首頁</button> <!-- 首頁按鈕 -->
                     <button class="btn-page" id="btn-prev-page">◀ 上一頁</button> <!-- 上一頁按鈕 -->

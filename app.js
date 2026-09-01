@@ -17,7 +17,13 @@ async function fetchData() { // 非同步讀取策略結果 JSON 函數
         const response = await fetch('strategy_results.json?v=' + new Date().getTime()); // 發送 HTTP GET 請求 (防快取)
         if (!response.ok) throw new Error('無法讀取 strategy_results.json 數據'); // 檢查回應狀態
         globalData = await response.json(); // 解析 JSON 物件並存入全域變數
-        
+
+        // 切換按鈕上的交易筆數改為由回測結果動態填入 (避免與實際回測結果不一致)
+        const n2 = globalData.metrics?.total_trades; // 2.1 年總筆數
+        const n4 = globalData.metrics_4yr?.total_trades; // 4 年總筆數
+        if (n2) document.getElementById('btn-2yr-count').textContent = n2; // 填入 2.1 年筆數
+        if (n4) document.getElementById('btn-4yr-count').textContent = n4; // 填入 4 年筆數
+
         applyDatasetMode(currentMode); // 依當前模式套用並渲染儀表板
     } catch (err) { // 捕捉錯誤
         console.error('資料載入失敗:', err); // 於控制台印出錯誤日誌
@@ -103,15 +109,24 @@ function renderStatusCards(status, metrics, goldChartData, mode) { // 渲染頂�
     const floatMDD = metrics.floating_drawdown_points || 667.13; // 浮動淨值 MDD (修正 alpha_floor=1.0 後)
     const pyrMAE = metrics.worst_pyramid_mae || -191.46; // 加碼單 MAE (修正 alpha_floor=1.0 後)
     
+    const cmpW = metrics.comparison_with_watch || {}; // 與原始版對照數據 (百分比由回測動態計算，不再寫死)
+    const pct = (v) => (typeof v === 'number' ? `較原版降 ${v}%` : '對照基準不可用'); // 格式化降幅文字
+
+    // 標題副標與防禦徽章一併改為動態，避免顯示過期的行銷數字
+    const subEl = document.getElementById('header-subtitle'); // 取得副標題元素
+    if (subEl && metrics.calmar_ratio) subEl.textContent = `動態 ATR 逆反比部位管理 × 卡瑪比率 ${metrics.calmar_ratio} × ${is2Yr ? '2.1年' : '4年'}回測`; // 動態副標題
+    const badgeEl = document.getElementById('float-loss-badge'); // 取得浮虧徽章元素
+    if (badgeEl) badgeEl.textContent = typeof cmpW.instant_float_loss_reduction_pct === 'number' ? `浮虧降 ${cmpW.instant_float_loss_reduction_pct}% 🚀` : '浮虧防禦 🚀'; // 動態徽章
+
     document.getElementById('max-float-loss-val').textContent = `${floatClose.toFixed(2)} pts`; // 顯示單點浮虧
     if (is2Yr) { // 2.1 年數據
-        document.getElementById('float-loss-compare-val').textContent = `${floatClose.toFixed(2)} pts (相較Watch暴降 40.9%)`; // 浮虧降低比例 (修正後)
-        document.getElementById('floating-mdd-val').textContent = `${floatMDD.toFixed(2)} pts (相較Watch降 20.4%)`; // 浮動回撤降低 (修正後)
-        document.getElementById('pyr-mae-val').textContent = `${pyrMAE.toFixed(2)} pts (加碼浮虧縮小 50.0%)`; // 加碼單浮虧降低 (修正後)
+        document.getElementById('float-loss-compare-val').textContent = `${floatClose.toFixed(2)} pts (${pct(cmpW.instant_float_loss_reduction_pct)})`; // 浮虧降低比例 (動態)
+        document.getElementById('floating-mdd-val').textContent = `${floatMDD.toFixed(2)} pts (${pct(cmpW.floating_mdd_reduction_pct)})`; // 浮動回撤降低 (動態)
+        document.getElementById('pyr-mae-val').textContent = `${pyrMAE.toFixed(2)} pts (${pct(cmpW.pyr_mae_reduction_pct)})`; // 加碼單浮虧降低 (動態)
     } else { // 4 年數據
         document.getElementById('float-loss-compare-val').textContent = `${floatClose.toFixed(2)} pts (4年極限抗壓)`; // 4年浮虧
-        document.getElementById('floating-mdd-val').textContent = `${floatMDD.toFixed(2)} pts (相較原版降 15.8%)`; // 4年浮動回撤 (修正後)
-        document.getElementById('pyr-mae-val').textContent = `${pyrMAE.toFixed(2)} pts (全週期鎖定在安全區)`; // 4年加碼浮虧 (修正後 動態讀取)
+        document.getElementById('floating-mdd-val').textContent = `${floatMDD.toFixed(2)} pts (${pct(cmpW.floating_mdd_reduction_pct)})`; // 4年浮動回撤 (動態)
+        document.getElementById('pyr-mae-val').textContent = `${pyrMAE.toFixed(2)} pts (全週期鎖定在安全區)`; // 4年加碼浮虧
     } // 判斷結束
     
     // 4. 總績效與 Calmar
@@ -125,7 +140,7 @@ function renderStatusCards(status, metrics, goldChartData, mode) { // 渲染頂�
     document.getElementById('pf-winrate-val').textContent = `${metrics.profit_factor || '1.82'} (${metrics.win_rate || '40.5'}%)`; // PF & 勝率
     
     const mddPts = metrics.max_drawdown || 321.62; // MDD
-    document.getElementById('mdd-val').textContent = is2Yr ? `${mddPts.toFixed(2)} pts (回撤縮小 32.4%)` : `${mddPts.toFixed(2)} pts (回撤暴減 41.5%)`; // MDD 顯示
+    document.getElementById('mdd-val').textContent = `${mddPts.toFixed(2)} pts (${pct(cmpW.mdd_reduction_pct)})`; // MDD 顯示 (降幅動態計算)
     
     // 目前已平倉回撤 (Current DD) 顯示
     const curDD = metrics.current_drawdown || (is2Yr ? 173.94 : 313.81); // 當前回撤點數
@@ -134,7 +149,7 @@ function renderStatusCards(status, metrics, goldChartData, mode) { // 渲染頂�
     const elCurDD = document.getElementById('current-dd-val'); // 取得卡片4目前回撤元素
     if (elCurDD) elCurDD.textContent = curDDText; // 更新卡片4目前回撤文字
     const elCard3CurDD = document.getElementById('card3-current-dd-val'); // 取得卡片3目前回撤元素
-    if (elCard3CurDD) elCard3CurDD.textContent = is2Yr ? `${curDDText} (較原版降 26.7%)` : curDDText; // 更新卡片3目前回撤文字
+    if (elCard3CurDD) elCard3CurDD.textContent = curDDText; // 更新卡片3目前回撤文字 (移除寫死的對照百分比)
     
     // 5. Alpha 動能與 FTMO 風控
     const a1 = (status.alpha_1d * 100).toFixed(1); // 1D Alpha
