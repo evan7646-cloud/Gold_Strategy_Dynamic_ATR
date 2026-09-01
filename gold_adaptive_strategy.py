@@ -12,9 +12,12 @@ from ea_sizing import quantize_units  # 匯入 EA 手數量化模組 (對齊 EA 
 # 美元指數資料源：改用券商自身的 PEPPERSTONE:USDX，對齊 EA 參數 InpDXYSymbol="USDX"
 # (原本使用外部的 ICEUS:DXY 指數，與 EA 實際讀取的商品不同，且日線邊界與 XAUUSD 不一致)
 DXY_DAILY_FILE = 'pepperstone_usdx_daily.csv'  # 美元指數日線檔案路徑
+# 黃金資料一律使用 PEPPERSTONE:XAUUSD；4H 由 1H 合成 UTC +0h 網格，與 EA 的 K 棒切分完全一致
+GOLD_4H_FILE = 'pepperstone_xauusd_4h.csv'  # 黃金 4H (1H 合成，EA 同網格)
+GOLD_DAILY_FILE = 'pepperstone_xauusd_daily.csv'  # 黃金日線
 
 def download_data(force=False):  # 定義下載數據的函數
-    if not force and os.path.exists('comex_gc1!_4h.csv') and os.path.exists('comex_gc1!_daily.csv') and os.path.exists(DXY_DAILY_FILE):  # 若本地數據檔案皆已存在
+    if not force and os.path.exists(GOLD_4H_FILE) and os.path.exists(GOLD_DAILY_FILE) and os.path.exists(DXY_DAILY_FILE):  # 若本地數據檔案皆已存在
         print("⚡ 本地數據已就緒，直接使用本地高精準數據庫進行回測...")  # 印出本地就緒提示
         return  # 直接返回
     print("正在檢查並下載最新 K 線數據...")  # 印出下載提示訊息
@@ -49,10 +52,10 @@ def download_data(force=False):  # 定義下載數據的函數
                 df_gold_d = df_gold_d.rename(columns={'datetime': 'timestamp'})  # 重新命名欄位
                 df_gold_d['timestamp'] = df_gold_d['timestamp'].dt.strftime('%Y-%m-%d')  # 格式化日期
                 df_new_gd = df_gold_d[['timestamp', 'open', 'high', 'low', 'close']]  # 取標準五欄位
-                if os.path.exists('comex_gc1!_daily.csv'):  # 檢查舊檔
-                    df_old_gd = pd.read_csv('comex_gc1!_daily.csv')  # 讀取舊檔
+                if os.path.exists(GOLD_DAILY_FILE):  # 檢查舊檔
+                    df_old_gd = pd.read_csv(GOLD_DAILY_FILE)  # 讀取舊檔
                     df_new_gd = pd.concat([df_old_gd, df_new_gd]).drop_duplicates(subset=['timestamp'], keep='last').sort_values('timestamp').reset_index(drop=True)  # 合併去重
-                df_new_gd.to_csv('comex_gc1!_daily.csv', index=False)  # 儲存 CSV
+                df_new_gd.to_csv(GOLD_DAILY_FILE, index=False)  # 儲存 CSV
                 print("✅ Pepperstone XAUUSD 日線下載與合併成功")  # 印出成功提示
         except Exception as e_gd:  # 捕捉日線異常
             print(f"⚠️ Pepperstone XAUUSD 日線下載警告: {e_gd}")  # 印出警告
@@ -70,7 +73,7 @@ def download_data(force=False):  # 定義下載數據的函數
                 }).dropna().reset_index()  # 去除空值
                 df_save = df_gold_4h[['timestamp', 'open', 'high', 'low', 'close']].copy()  # 取標準欄位
                 df_save['timestamp'] = df_save['timestamp'].dt.strftime('%Y-%m-%d %H:%M:%S')  # 格式化時間
-                df_save.to_csv('comex_gc1!_4h.csv', index=False)  # 儲存 4H CSV
+                df_save.to_csv(GOLD_4H_FILE, index=False)  # 儲存 4H CSV
                 print("✅ Pepperstone XAUUSD 4H K線精準合成與儲存成功")  # 印出成功提示
         except Exception as e_g4h:  # 捕捉 4H 異常
             print(f"⚠️ Pepperstone XAUUSD 4H K線下載警告: {e_g4h}")  # 印出警告
@@ -332,9 +335,9 @@ def simulate_adaptive_direction(df, is_long_only=True, baseline_atr=16.0, alpha_
 def run_backtest():  # 執行自適應策略回測主程式
     download_data()  # 嘗試下載最新數據或使用本機快取
 
-    gold_daily_file = 'comex_gc1!_daily.csv'  # 黃金日線路徑
+    gold_daily_file = GOLD_DAILY_FILE  # 黃金日線路徑 (PEPPERSTONE:XAUUSD)
     dxy_daily_file = DXY_DAILY_FILE  # DXY 日線路徑 (Pepperstone USDX，對齊 EA)
-    gold_4h_file = 'comex_gc1!_4h.csv'  # 黃金 4H 路徑
+    gold_4h_file = GOLD_4H_FILE  # 黃金 4H 路徑 (PEPPERSTONE:XAUUSD, 1H 合成 UTC+0h 網格)
 
     gold_d = pd.read_csv(gold_daily_file)  # 讀取黃金日線
     dxy_d = pd.read_csv(dxy_daily_file)  # 讀取 DXY 日線
@@ -531,6 +534,10 @@ def run_backtest():  # 執行自適應策略回測主程式
         'calmar_ratio': calmar_ratio,  # 卡瑪比率
         'sharpe_ratio': sharpe_ratio,  # 夏普比率
         'annual_pnl_points': round(annual_pnl, 2),  # 年化獲利點數
+        'years': round(years, 2),  # 實際涵蓋年數 (由首筆進場至末筆出場計算)
+        'data_start': str(first_date.date()),  # 實際回測起始日
+        'data_end': str(last_date.date()),  # 實際回測結束日
+        'data_source': 'PEPPERSTONE:XAUUSD (1H 合成 UTC+0h 網格 4H，與 EA 同切分)',  # 資料源標註
         'comparison_with_watch': {  # 與原始固定倉位版 (Watch) 對照
             # ⚠️ 下列 *_watch 基準值產生於「舊成本模型 + 舊日線對齊」，與本次結果並非同基準，
             #    僅供粗略參考；如需嚴謹對照，須以相同成本模型與對齊方式重跑原始版策略。

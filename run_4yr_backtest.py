@@ -40,9 +40,12 @@ def compute_cost_sensitivity(trade_records):  # 成本情境敏感度分析：�
     return result  # 回傳三情境對照
 
 def run_4yr_adaptive_backtest():  # 執行 4 年全數據回測
-    gold_d_file = 'comex_gc1!_daily.csv'  # 黃金日線檔案
+    gold_d_file = 'pepperstone_xauusd_daily.csv'  # 黃金日線檔案 (PEPPERSTONE:XAUUSD)
     dxy_d_file = 'pepperstone_usdx_daily.csv'  # DXY 日線檔案 (Pepperstone USDX，對齊 EA 參數 InpDXYSymbol="USDX")
-    gold_4h_file = 'xauusd_4h_4yr.csv'  # 4 年 XAUUSD 4H K線檔案 (5,585 根)
+    # ⚠️ 長期壓力測試改用 PEPPERSTONE:XAUUSD 原生 4H：資料源與 EA 相同，但 K 棒邊界落在
+    #    券商時區網格 (2/3、6/7、10/11…)，與 EA 所用的 UTC +0h 網格不同。
+    #    原因：匿名 tvDatafeed 的 1H 歷史僅約 1.7 年，無法合成更長期間的 +0h 網格 4H。
+    gold_4h_file = 'pepperstone_xauusd_4h_long.csv'  # 長期 4H K線 (PEPPERSTONE:XAUUSD 原生 4H)
 
     gold_d = pd.read_csv(gold_d_file).rename(columns={'close': 'gc', 'open': 'go', 'high': 'gh', 'low': 'gl'})  # 讀取黃金日線
     dxy_d = pd.read_csv(dxy_d_file).rename(columns={'close': 'dc', 'open': 'do', 'high': 'dh', 'low': 'dl'})  # 讀取 DXY 日線
@@ -321,6 +324,9 @@ def run_4yr_adaptive_backtest():  # 執行 4 年全數據回測
             'calmar_ratio': calmar,  # 卡瑪比率
             'sharpe_ratio': sharpe,  # 夏普比率
             'years': round(years, 2),  # 統計年數
+            'data_start': str(first_d.date()),  # 實際回測起始日
+            'data_end': str(last_d.date()),  # 實際回測結束日
+            'data_source': 'PEPPERSTONE:XAUUSD (原生 4H，券商時區網格，與 EA 網格不同)',  # 資料源標註
             'cost_scenario_used': DEFAULT_SCENARIO,  # 主指標所用成本情境
             'cost_sensitivity': cost_sensitivity_4yr,  # best/typical/stress 三情境對照 (swap/滑價為非官方保守估計)
             'comparison_with_watch': {  # 與原始固定倉位版對照 (百分比動態計算)

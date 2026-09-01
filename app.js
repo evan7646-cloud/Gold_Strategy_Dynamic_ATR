@@ -21,8 +21,12 @@ async function fetchData() { // 非同步讀取策略結果 JSON 函數
         // 切換按鈕上的交易筆數改為由回測結果動態填入 (避免與實際回測結果不一致)
         const n2 = globalData.metrics?.total_trades; // 2.1 年總筆數
         const n4 = globalData.metrics_4yr?.total_trades; // 4 年總筆數
-        if (n2) document.getElementById('btn-2yr-count').textContent = n2; // 填入 2.1 年筆數
-        if (n4) document.getElementById('btn-4yr-count').textContent = n4; // 填入 4 年筆數
+        if (n2) document.getElementById('btn-2yr-count').textContent = n2; // 填入短期回測筆數
+        if (n4) document.getElementById('btn-4yr-count').textContent = n4; // 填入長期回測筆數
+        // 期間標籤改由實際資料涵蓋年數產生，避免寫死的「2.1年 / 4年」與真實區間不符
+        const y2 = globalData.metrics?.years, y4 = globalData.metrics_4yr?.years;
+        if (y2) document.getElementById('btn-2yr-label').textContent = `${y2}年實盤回測`;
+        if (y4) document.getElementById('btn-4yr-label').textContent = `${y4}年長期壓力測試`;
 
         applyDatasetMode(currentMode); // 依當前模式套用並渲染儀表板
     } catch (err) { // 捕捉錯誤
@@ -67,9 +71,11 @@ function renderStatusCards(status, metrics, goldChartData, mode) { // 渲染頂�
     const is2Yr = (mode === '2yr'); // 判斷是否為 2.1 年模式
     
     // 頂部時間標籤
-    const startStr = is2Yr ? '2024-07-07' : '2023-01-10'; // 起始日期
-    const endStr = status.last_updated ? status.last_updated.substring(0, 10) : '2026-08-26'; // 結束日期
-    document.getElementById('last-updated-text').textContent = `回測區間：${startStr} ~ ${endStr} (${is2Yr ? '2.1 年實盤' : '4 年全數據'})`; // 填入時間文字
+    // 回測區間改由回測結果實際產生，不再寫死日期與年數
+    const startStr = metrics.data_start || '—'; // 實際起始日期
+    const endStr = metrics.data_end || (status.last_updated ? status.last_updated.substring(0, 10) : '—'); // 實際結束日期
+    const spanStr = metrics.years ? `${metrics.years} 年` : (is2Yr ? '實盤' : '長期');
+    document.getElementById('last-updated-text').textContent = `回測區間：${startStr} ~ ${endStr} (${spanStr})`; // 填入時間文字
     
     // 1. 市場體制 Regime 卡片
     const regimeEl = document.getElementById('regime-val'); // 取得 Regime 元素
