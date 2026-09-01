@@ -55,6 +55,8 @@ bool     g_RegimeBull       = false; // 大趨勢是否為多頭 (Close > 50SMA)
 bool     g_PyramidLongOK    = false; // 日線是否允許加多
 bool     g_PyramidShortOK   = false; // 日線是否允許加空
 
+double   g_LastATR4H        = 0.0;   // 最近一次 4H 交易邏輯所用之 ATR (供 HUD 顯示，確保與下單邏輯同源)
+
 //--- 指標句柄全域變數
 int      g_hMA50D           = INVALID_HANDLE; // 日線 50SMA 句柄
 int      g_hMA20D           = INVALID_HANDLE; // 日線 20SMA 句柄
@@ -298,6 +300,28 @@ void CheckAndResetDailySOD() // FTMO 每日風控邏輯
 } // 函數結束
 
 //+------------------------------------------------------------------+
+//| 計算 H4 簡單平均 ATR (CalcSimpleATR_H4)                            |
+//| ⚠️ MT5 內建 iATR 採用 Wilder 平滑 (RMA)，與 Python 回測所用的       |
+//|    「14 根 TR 算術平均」不同，會導致停損價與回測產生系統性偏差。     |
+//|    故此處自行計算算術平均 ATR，確保 EA 與網頁回測邏輯完全一致。      |
+//+------------------------------------------------------------------+
+double CalcSimpleATR_H4(int shift, int period) // 計算 H4 算術平均 ATR
+{ // 函數開頭
+   double sumTR = 0.0; // TR 累加值
+   for(int k = 0; k < period; k++) // 累加 period 根 TR
+   { // 迴圈開頭
+      int i = shift + k; // 當前 K 線索引
+      double h  = iHigh(_Symbol, PERIOD_H4, i);      // 當根最高價
+      double l  = iLow(_Symbol, PERIOD_H4, i);       // 當根最低價
+      double cp = iClose(_Symbol, PERIOD_H4, i + 1); // 前一根收盤價
+      if(h == 0 || l == 0 || cp == 0) return 0.0; // 資料未就緒則回傳 0
+      double tr = MathMax(h - l, MathMax(MathAbs(h - cp), MathAbs(l - cp))); // 計算真實波幅 TR
+      sumTR += tr; // 累加
+   } // 迴圈結束
+   return sumTR / period; // 回傳算術平均 ATR
+} // 函數結束
+
+//+------------------------------------------------------------------+
 //| 計算 Alpha 因子 (CalculateAlpha) (同步最終版精準減號算式)            |
 //+------------------------------------------------------------------+
 bool CalculateAlpha(double &alpha1, double &alpha5, double &alpha10) // 計算日線 Alpha
@@ -449,8 +473,18 @@ void ReconstructStopPrices() // 重構移動停損價
             double h_prev = hBars[i-1]; // 前 High
             double l_prev = lBars[i-1]; // 前 Low
 
-            double tr = MathMax(h - l, MathMax(MathAbs(h - cBars[i-1]), MathAbs(l - cBars[i-1]))); // 真實波幅 TR
-            double atr = tr; // 軌跡估算 ATR
+            double atr = 0.0; // 該時點之 14ATR (算術平均，對齊回測；原本誤用單根 TR 導致停損價偏差)
+            if(i >= InpATR4H_Period) // 需有足夠歷史根數才能計算
+            { // 條件開頭
+               double sumTR = 0.0; // TR 累加值
+               for(int m = i - InpATR4H_Period + 1; m <= i; m++) // 累加 14 根 TR
+               { // 迴圈開頭
+                  double trm = MathMax(hBars[m] - lBars[m], MathMax(MathAbs(hBars[m] - cBars[m-1]), MathAbs(lBars[m] - cBars[m-1]))); // 該根 TR
+                  sumTR += trm; // 累加
+               } // 迴圈結束
+               atr = sumTR / InpATR4H_Period; // 算術平均 ATR
+            } // 條件結束
+            else continue; // 資料不足則跳過該根
 
             if(posType == POSITION_TYPE_BUY) // 多頭軌跡
             { // 條件開頭
@@ -487,9 +521,8 @@ void ReconstructStopPrices() // 重構移動停損價
          double h_prev = iHigh(_Symbol, PERIOD_H4, i + 1); // 取前 High
          double l_prev = iLow(_Symbol, PERIOD_H4, i + 1); // 取前 Low
 
-         double atrArray[1]; // ATR 陣列
-         if(CopyBuffer(g_hATR4H, 0, i, 1, atrArray) <= 0) continue; // 讀取當時 ATR
-         double atr = atrArray[0]; // ATR 值
+         double atr = CalcSimpleATR_H4(i, InpATR4H_Period); // 讀取當時 14ATR (算術平均，對齊回測而非 Wilder 平滑的 iATR)
+         if(atr <= 0.0) continue; // ATR 未就緒則跳過
 
          if(posType == POSITION_TYPE_BUY) // 多頭軌跡
          { // 條件開頭
@@ -560,9 +593,10 @@ void ProcessNew4HBar() // 新 4H K 線完結邏輯
    } // 條件結束
    else // 原 H4 圖表相容模式
    { // 條件開頭
-      double ma4hArray[1], atr4hArray[1]; // 宣告快取陣列
+      double ma4hArray[1]; // 宣告快取陣列
       if(CopyBuffer(g_hMA4H, 0, 1, 1, ma4hArray) <= 0) return; // 讀取 4H MA
-      if(CopyBuffer(g_hATR4H, 0, 1, 1, atr4hArray) <= 0) return; // 讀取 4H ATR
+      double simpleATR = CalcSimpleATR_H4(1, InpATR4H_Period); // 改用算術平均 ATR (對齊回測，不用 Wilder 平滑的 iATR)
+      if(simpleATR <= 0.0) return; // ATR 未就緒則跳過
 
       c1 = iClose(_Symbol, PERIOD_H4, 1); // bar[1] 收盤價
       c2 = iClose(_Symbol, PERIOD_H4, 2); // bar[2] 收盤價
@@ -571,8 +605,10 @@ void ProcessNew4HBar() // 新 4H K 線完結邏輯
       h2 = iHigh(_Symbol, PERIOD_H4, 2);  // bar[2] 最高價
       l2 = iLow(_Symbol, PERIOD_H4, 2);   // bar[2] 最低價
       ma4h = ma4hArray[0]; // 4H MA 值
-      atr4h = atr4hArray[0]; // 4H ATR 值
+      atr4h = simpleATR; // 4H ATR 值 (算術平均，對齊回測)
    } // 條件結束
+
+   g_LastATR4H = atr4h; // 快取本次交易邏輯所用之 ATR (供 HUD 顯示同源數值)
 
    bool sig_long_4h = (c1 > ma4h) && (c1 > c2); // 4H 多頭訊號 (Close > 30MA 且動能 > 0)
 
@@ -820,8 +856,8 @@ void UpdateChartDashboard() // 更新圖表 HUD 儀表板
    CalculateAlpha(a1, a5, a10); // 計算最新 Alpha 動能
    
    double curATR = 16.0; // 預設安全 ATR 值
-   double atrArr[1]; // 快取陣列
-   if(g_hATR4H != INVALID_HANDLE && CopyBuffer(g_hATR4H, 0, 1, 1, atrArr) > 0) curATR = atrArr[0]; // 讀取 4H 14ATR
+   if(g_LastATR4H > 0.0) curATR = g_LastATR4H; // 顯示交易邏輯實際採用之 ATR (與回測同為算術平均，避免 HUD 與下單依據不一致)
+   else { double atrArr[1]; if(g_hATR4H != INVALID_HANDLE && CopyBuffer(g_hATR4H, 0, 1, 1, atrArr) > 0) curATR = atrArr[0]; } // 尚未跑過 4H 邏輯時的暫時備援值
    
    double atr_safe = MathMax(curATR, 4.0); // 安全 ATR 防除零
    double volScale = InpBaselineATR / atr_safe; // 波動度調制係數
@@ -852,34 +888,20 @@ void UpdateChartDashboard() // 更新圖表 HUD 儀表板
    } // 條件結束
 
    string hud = ""; // 初始化儀表板字串
-   hud += "══════════════════════════════════════════════════════════════════ // 拼接儀表板字串
-"; // 分隔線
-   hud += " ⚡ XAUUSD 4H 30MA 51Bitquant 波動度自適應調倉 EA (FTMO 版) // 拼接儀表板字串
-"; // 系統標題
-   hud += "══════════════════════════════════════════════════════════════════ // 拼接儀表板字串
-"; // 分隔線
-   hud += StringFormat(" 📈 大趨勢體制 (Regime 50SMA): %s // 拼接儀表板字串
-", g_RegimeBull ? "🟢 牛市多頭 (Long Only)" : "🔴 熊市空頭 (Short Only)"); // 體制狀態
-   hud += StringFormat(" ⚡ 4H 14ATR 波動度: %.2f 點 (基準: %.1f 點) | %s // 拼接儀表板字串
-", curATR, InpBaselineATR, volRisk); // 波動度狀態
-   hud += StringFormat(" 🎯 51Bitquant 當前加碼乘數: %.2fx (範圍: %.1fx ~ %.1fx) // 拼接儀表板字串
-", MathMin(InpMaxPyrMult, MathMax(InpMinPyrMult, InpPyramidBoostMultiplier * volScale)), InpMinPyrMult, InpMaxPyrMult); // 手數乘數
-   hud += StringFormat(" 🌐 Alpha 跨市場動能: 1D: %+.2f%% | 5D: %+.2f%% | 10D: %+.2f%% // 拼接儀表板字串
-", a1 * 100.0, a5 * 100.0, a10 * 100.0); // Alpha 動能
-   hud += "────────────────────────────────────────────────────────────────── // 拼接儀表板字串
-"; // 分隔線
-   hud += StringFormat(" 🛡️ FTMO 每日風控 (4.5%%): SOD基準=$%.2f | 當日浮動=%+$.2f // 拼接儀表板字串
-", g_SOD_Baseline, floatingLoss); // 風控基準
-   hud += StringFormat(" 🚨 離 4.5%% 熔斷死線剩餘緩衝: $%.2f (%s) // 拼接儀表板字串
-", buffer, g_DailyHalted ? "🔴 今日已熔斷停止交易" : "🟢 運行安全正常"); // 緩衝額度
-   hud += "────────────────────────────────────────────────────────────────── // 拼接儀表板字串
-"; // 分隔線
-   hud += StringFormat(" 💼 主持倉部位: %s // 拼接儀表板字串
-", mainInfo); // 主部位資訊
-   hud += StringFormat(" ➕ 加碼持倉倉: %s // 拼接儀表板字串
-", pyrInfo); // 加碼部位資訊
-   hud += "══════════════════════════════════════════════════════════════════ // 拼接儀表板字串
-"; // 結束線
+   hud += "══════════════════════════════════════════════════════════════════\n"; // 拼接儀表板頂部分隔線
+   hud += " ⚡ XAUUSD 4H 30MA 51Bitquant 波動度自適應調倉 EA (FTMO 版)\n"; // 系統標題文字
+   hud += "══════════════════════════════════════════════════════════════════\n"; // 拼接標題分隔線
+   hud += StringFormat(" 📈 大趨勢體制 (Regime 50SMA): %s\n", g_RegimeBull ? "🟢 牛市多頭 (Long Only)" : "🔴 熊市空頭 (Short Only)"); // 體制狀態資訊
+   hud += StringFormat(" ⚡ 4H 14ATR 波動度: %.2f 點 (基準: %.1f 點) | %s\n", curATR, InpBaselineATR, volRisk); // 波動度即時狀態
+   hud += StringFormat(" 🎯 51Bitquant 當前加碼乘數: %.2fx (範圍: %.1fx ~ %.1fx)\n", MathMin(InpMaxPyrMult, MathMax(InpMinPyrMult, InpPyramidBoostMultiplier * volScale)), InpMinPyrMult, InpMaxPyrMult); // 加碼乘數資訊
+   hud += StringFormat(" 🌐 Alpha 跨市場動能: 1D: %+.2f%% | 5D: %+.2f%% | 10D: %+.2f%%\n", a1 * 100.0, a5 * 100.0, a10 * 100.0); // 跨市場 Alpha 動能資訊
+   hud += "──────────────────────────────────────────────────────────────────\n"; // 拼接資訊中隔線
+   hud += StringFormat(" 🛡️ FTMO 每日風控 (4.5%%): SOD基準=$%.2f | 當日浮動=%+$.2f\n", g_SOD_Baseline, floatingLoss); // FTMO 當日風控基準
+   hud += StringFormat(" 🚨 離 4.5%% 熔斷死線剩餘緩衝: $%.2f (%s)\n", buffer, g_DailyHalted ? "🔴 今日已熔斷停止交易" : "🟢 運行安全正常"); // 熔斷緩衝額度
+   hud += "──────────────────────────────────────────────────────────────────\n"; // 拼接部位中隔線
+   hud += StringFormat(" 💼 主持倉部位: %s\n", mainInfo); // 主持倉狀態資訊
+   hud += StringFormat(" ➕ 加碼持倉: %s\n", pyrInfo); // 加碼部位狀態資訊
+   hud += "══════════════════════════════════════════════════════════════════\n"; // 拼接儀表板底部分隔線
    Comment(hud); // 輸出至圖表左上角
 } // 函數結束
 
