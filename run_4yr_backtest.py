@@ -41,14 +41,20 @@ def compute_cost_sensitivity(trade_records):  # 成本情境敏感度分析：�
 
 def run_4yr_adaptive_backtest():  # 執行 4 年全數據回測
     gold_d_file = 'comex_gc1!_daily.csv'  # 黃金日線檔案
-    dxy_d_file = 'iceus_dxy_daily.csv'  # DXY 日線檔案
+    dxy_d_file = 'pepperstone_usdx_daily.csv'  # DXY 日線檔案 (Pepperstone USDX，對齊 EA 參數 InpDXYSymbol="USDX")
     gold_4h_file = 'xauusd_4h_4yr.csv'  # 4 年 XAUUSD 4H K線檔案 (5,585 根)
 
     gold_d = pd.read_csv(gold_d_file).rename(columns={'close': 'gc', 'open': 'go', 'high': 'gh', 'low': 'gl'})  # 讀取黃金日線
     dxy_d = pd.read_csv(dxy_d_file).rename(columns={'close': 'dc', 'open': 'do', 'high': 'dh', 'low': 'dl'})  # 讀取 DXY 日線
     gold_4h = pd.read_csv(gold_4h_file)  # 讀取 4 年 4H K線
 
-    df_daily = pd.merge(gold_d, dxy_d, on='timestamp', how='inner')  # 合併日線
+    # 以黃金日線為基準做左連結並前向填補 DXY (理由同 gold_adaptive_strategy.py)：
+    # 避免 inner join 因 USDX 無週日 K 棒而丟棄約 17% 黃金交易日，等同 EA 的 iBarShift 語意
+    df_daily = pd.merge(gold_d, dxy_d, on='timestamp', how='left')  # 保留全部黃金交易日
+    _dxy_cols = ['dc', 'do', 'dh', 'dl']  # DXY 欄位
+    df_daily = df_daily.sort_values('timestamp')  # 先排序才能正確前向填補
+    df_daily[_dxy_cols] = df_daily[_dxy_cols].ffill()  # 前向填補 DXY
+    df_daily = df_daily.dropna(subset=['dc']).reset_index(drop=True)  # 去除開頭無 DXY 可填補的列
     df_daily['timestamp'] = pd.to_datetime(df_daily['timestamp'])  # 轉為 datetime
     df_daily = df_daily.sort_values('timestamp').reset_index(drop=True)  # 排序
 

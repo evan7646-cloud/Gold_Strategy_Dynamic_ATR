@@ -329,16 +329,21 @@ bool CalculateAlpha(double &alpha1, double &alpha5, double &alpha10) // 計算�
    string dxySym = GetValidDXYSymbol(); // 取得有效的 DXY 商品代號 (同步最終版)
 
    double goldCloses[12]; // 宣告黃金收盤價陣列
+   double dxyCloses[12];  // 宣告 DXY 收盤價陣列
    for(int i = 0; i < 12; i++) // 迴圈讀取 12 根日線收盤價
    { // 迴圈開頭
-      goldCloses[i] = iClose(_Symbol, PERIOD_D1, i + 1); // 從 bar[1] 開始讀取
+      goldCloses[i] = iClose(_Symbol, PERIOD_D1, i + 1); // 從 bar[1] 開始讀取黃金
       if(goldCloses[i] == 0) return false; // 若未準備好則回傳失敗
-   } // 迴圈結束
 
-   double dxyCloses[12]; // 宣告 DXY 收盤價陣列
-   for(int i = 0; i < 12; i++) // 迴圈讀取 12 根 DXY 日線收盤價
-   { // 迴圈開頭
-      dxyCloses[i] = iClose(dxySym, PERIOD_D1, i + 1); // 從 bar[1] 開始讀取
+      // ⚠️ DXY 必須依「日期」對齊，不可沿用相同的 K 棒索引：
+      //    XAUUSD 與 USDX 每週的 D1 根數可能不同 (例如黃金有週日 K 棒而 USDX 沒有)，
+      //    若直接用 i+1 取 DXY，兩者會比較到不同日期，且誤差隨回看天數累積放大
+      //    (Alpha10 可能錯開 2 天以上)。此處以黃金 K 棒時間反查對應之 DXY K 棒。
+      datetime goldBarTime = iTime(_Symbol, PERIOD_D1, i + 1); // 取得該根黃金日線的時間
+      if(goldBarTime == 0) return false; // 時間未就緒則回傳失敗
+      int dxyShift = iBarShift(dxySym, PERIOD_D1, goldBarTime, false); // 反查同日期(或之前最近一根)的 DXY 索引
+      if(dxyShift < 0) return false; // 查無對應 K 棒則回傳失敗
+      dxyCloses[i] = iClose(dxySym, PERIOD_D1, dxyShift); // 讀取日期對齊後的 DXY 收盤價
       if(dxyCloses[i] == 0) return false; // 若未準備好則回傳失敗
    } // 迴圈結束
 

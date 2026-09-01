@@ -9,8 +9,12 @@ from cost_model import trade_cost_points, COST_SCENARIOS, DEFAULT_SCENARIO  # �
 from daily_align import attach_daily_features  # 匯入日線時間對齊模組 (消除未來函數並對齊 EA 的 iClose(PERIOD_D1,1) 語意)
 from ea_sizing import quantize_units  # 匯入 EA 手數量化模組 (對齊 EA NormalizeLot 的無條件捨去規則)
 
+# 美元指數資料源：改用券商自身的 PEPPERSTONE:USDX，對齊 EA 參數 InpDXYSymbol="USDX"
+# (原本使用外部的 ICEUS:DXY 指數，與 EA 實際讀取的商品不同，且日線邊界與 XAUUSD 不一致)
+DXY_DAILY_FILE = 'pepperstone_usdx_daily.csv'  # 美元指數日線檔案路徑
+
 def download_data(force=False):  # 定義下載數據的函數
-    if not force and os.path.exists('comex_gc1!_4h.csv') and os.path.exists('comex_gc1!_daily.csv') and os.path.exists('iceus_dxy_daily.csv'):  # 若本地數據檔案皆已存在
+    if not force and os.path.exists('comex_gc1!_4h.csv') and os.path.exists('comex_gc1!_daily.csv') and os.path.exists(DXY_DAILY_FILE):  # 若本地數據檔案皆已存在
         print("⚡ 本地數據已就緒，直接使用本地高精準數據庫進行回測...")  # 印出本地就緒提示
         return  # 直接返回
     print("正在檢查並下載最新 K 線數據...")  # 印出下載提示訊息
@@ -19,21 +23,23 @@ def download_data(force=False):  # 定義下載數據的函數
         local_utc_offset = datetime.datetime.now().astimezone().utcoffset()  # 取得本機 UTC 偏移量
         utc8_offset = datetime.timedelta(hours=8)  # 定義台北時間 (UTC+8) 的固定偏移量
         tz_correction = utc8_offset - local_utc_offset  # 計算時區修正量
-        try:  # 嘗試下載 DXY 日線
-            df_dxy = tv.get_hist(symbol='DXY', exchange='ICEUS', interval=Interval.in_daily, n_bars=5000)  # 下載美元指數日線資料
+        try:  # 嘗試下載 Pepperstone USDX 美元指數日線
+            # 使用券商自身的 USDX CFD (對齊 EA 參數 InpDXYSymbol="USDX")；
+            # 同時因與 XAUUSD 同屬 Pepperstone，日線邊界一致，優於外部的 ICEUS:DXY 指數。
+            df_dxy = tv.get_hist(symbol='USDX', exchange='PEPPERSTONE', interval=Interval.in_daily, n_bars=5000)  # 下載美元指數日線資料
             if df_dxy is not None and not df_dxy.empty:  # 檢查美元指數資料是否成功取得
                 df_dxy = df_dxy.reset_index()  # 重設索引
                 df_dxy['datetime'] = pd.to_datetime(df_dxy['datetime']) + tz_correction  # 修正為 UTC+8
                 df_dxy = df_dxy.rename(columns={'datetime': 'timestamp'})  # 重新命名欄位
                 df_dxy['timestamp'] = df_dxy['timestamp'].dt.strftime('%Y-%m-%d')  # 格式化日期
                 df_new_dxy = df_dxy[['timestamp', 'open', 'high', 'low', 'close']]  # 取標準五欄位
-                if os.path.exists('iceus_dxy_daily.csv'):  # 檢查舊檔
-                    df_old_dxy = pd.read_csv('iceus_dxy_daily.csv')  # 讀取舊 CSV
+                if os.path.exists(DXY_DAILY_FILE):  # 檢查舊檔
+                    df_old_dxy = pd.read_csv(DXY_DAILY_FILE)  # 讀取舊 CSV
                     df_new_dxy = pd.concat([df_old_dxy, df_new_dxy]).drop_duplicates(subset=['timestamp'], keep='last').sort_values('timestamp').reset_index(drop=True)  # 合併去重
-                df_new_dxy.to_csv('iceus_dxy_daily.csv', index=False)  # 儲存 CSV
-                print("✅ 美元指數日線下載與合併成功")  # 印出成功提示
+                df_new_dxy.to_csv(DXY_DAILY_FILE, index=False)  # 儲存 CSV
+                print("✅ Pepperstone USDX 美元指數日線下載與合併成功")  # 印出成功提示
         except Exception as e_dxy:  # 捕捉 DXY 異常
-            print(f"⚠️ 美元指數下載警告: {e_dxy}")  # 印出警告
+            print(f"⚠️ Pepperstone USDX 下載警告: {e_dxy}")  # 印出警告
 
         try:  # 嘗試下載 Pepperstone XAUUSD 黃金日線
             df_gold_d = tv.get_hist(symbol='XAUUSD', exchange='PEPPERSTONE', interval=Interval.in_daily, n_bars=5000)  # 下載黃金日線
@@ -327,7 +333,7 @@ def run_backtest():  # 執行自適應策略回測主程式
     download_data()  # 嘗試下載最新數據或使用本機快取
 
     gold_daily_file = 'comex_gc1!_daily.csv'  # 黃金日線路徑
-    dxy_daily_file = 'iceus_dxy_daily.csv'  # DXY 日線路徑
+    dxy_daily_file = DXY_DAILY_FILE  # DXY 日線路徑 (Pepperstone USDX，對齊 EA)
     gold_4h_file = 'comex_gc1!_4h.csv'  # 黃金 4H 路徑
 
     gold_d = pd.read_csv(gold_daily_file)  # 讀取黃金日線
@@ -337,7 +343,14 @@ def run_backtest():  # 執行自適應策略回測主程式
     gold_d = gold_d.rename(columns={'close': 'gold_close', 'open': 'gold_open', 'high': 'gold_high', 'low': 'gold_low'})  # 重新命名欄位
     dxy_d = dxy_d.rename(columns={'close': 'dxy_close', 'open': 'dxy_open', 'high': 'dxy_high', 'low': 'dxy_low'})  # 重新命名欄位
 
-    df_daily = pd.merge(gold_d, dxy_d, on='timestamp', how='inner')  # 合併日線
+    # 以黃金日線為基準做左連結並前向填補 DXY：
+    # XAUUSD 有週日 K 棒而 Pepperstone USDX 沒有，若用 inner join 會丟棄約 17% 的黃金交易日，
+    # 破壞 MA 與 N 日報酬的計算。左連結 + ffill 等同 EA 內 iBarShift(..., exact=false) 的語意。
+    df_daily = pd.merge(gold_d, dxy_d, on='timestamp', how='left')  # 保留全部黃金交易日
+    _dxy_cols = [c for c in df_daily.columns if c.startswith('dxy_')]  # 取出 DXY 相關欄位
+    df_daily = df_daily.sort_values('timestamp')  # 先依時間排序才能正確前向填補
+    df_daily[_dxy_cols] = df_daily[_dxy_cols].ffill()  # 前向填補 DXY (週日沿用前一交易日收盤)
+    df_daily = df_daily.dropna(subset=_dxy_cols).reset_index(drop=True)  # 去除開頭尚無 DXY 可填補的列
     df_daily['timestamp'] = pd.to_datetime(df_daily['timestamp'])  # 轉為 datetime
     df_daily = df_daily.sort_values('timestamp').reset_index(drop=True)  # 排序
 
