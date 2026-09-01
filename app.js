@@ -76,6 +76,9 @@ function renderStatusCards(status, metrics, goldChartData, mode) { // 渲染頂�
     const endStr = metrics.data_end || (status.last_updated ? status.last_updated.substring(0, 10) : '—'); // 實際結束日期
     const spanStr = metrics.years ? `${metrics.years} 年` : (is2Yr ? '實盤' : '長期');
     document.getElementById('last-updated-text').textContent = `回測區間：${startStr} ~ ${endStr} (${spanStr})`; // 填入時間文字
+    // 顯示資料源與 K 棒切分方式：長期回測採用原生 4H，K 棒邊界與 EA 不同，需明確揭露
+    const dsEl = document.getElementById('data-source-text');
+    if (dsEl) dsEl.textContent = metrics.data_source ? `📡 ${metrics.data_source}` : '📡 資料源未標註';
     
     // 1. 市場體制 Regime 卡片
     const regimeEl = document.getElementById('regime-val'); // 取得 Regime 元素
@@ -110,52 +113,49 @@ function renderStatusCards(status, metrics, goldChartData, mode) { // 渲染頂�
         volEl.className = 'card-main-val defense-val'; // 青色
     } // 波動判斷結束
     
-    // 3. 🛡️ 浮動虧損防禦成效卡 (亮點指標)
-    const floatClose = metrics.max_instant_float_loss_close || metrics.max_instant_float_loss || -231.88; // 單點浮虧 (修正 alpha_floor=1.0 後)
-    const floatMDD = metrics.floating_drawdown_points || 667.13; // 浮動淨值 MDD (修正 alpha_floor=1.0 後)
-    const pyrMAE = metrics.worst_pyramid_mae || -191.46; // 加碼單 MAE (修正 alpha_floor=1.0 後)
-    
-    const cmpW = metrics.comparison_with_watch || {}; // 與原始版對照數據 (百分比由回測動態計算，不再寫死)
-    const pct = (v) => (typeof v === 'number' ? `較原版降 ${v}%` : '對照基準不可用'); // 格式化降幅文字
+    // 數值格式化工具：資料缺漏時一律顯示佔位符，不使用寫死的舊數字兜底
+    const fmtPts = (v) => (typeof v === 'number' ? `${v.toFixed(2)} pts` : '—'); // 點數格式
+    const fmtNum = (v) => (typeof v === 'number' ? v : '—'); // 純數值格式
 
-    // 標題副標與防禦徽章一併改為動態，避免顯示過期的行銷數字
+    // 標題副標改為動態，年數也取自回測實際涵蓋期間
     const subEl = document.getElementById('header-subtitle'); // 取得副標題元素
-    if (subEl && metrics.calmar_ratio) subEl.textContent = `動態 ATR 逆反比部位管理 × 卡瑪比率 ${metrics.calmar_ratio} × ${is2Yr ? '2.1年' : '4年'}回測`; // 動態副標題
-    const badgeEl = document.getElementById('float-loss-badge'); // 取得浮虧徽章元素
-    if (badgeEl) badgeEl.textContent = typeof cmpW.instant_float_loss_reduction_pct === 'number' ? `浮虧降 ${cmpW.instant_float_loss_reduction_pct}% 🚀` : '浮虧防禦 🚀'; // 動態徽章
+    if (subEl && metrics.calmar_ratio) subEl.textContent = `動態 ATR 逆反比部位管理 × 卡瑪比率 ${metrics.calmar_ratio} × ${metrics.years || '—'} 年回測`; // 動態副標題
 
-    document.getElementById('max-float-loss-val').textContent = `${floatClose.toFixed(2)} pts`; // 顯示單點浮虧
-    if (is2Yr) { // 2.1 年數據
-        document.getElementById('float-loss-compare-val').textContent = `${floatClose.toFixed(2)} pts (${pct(cmpW.instant_float_loss_reduction_pct)})`; // 浮虧降低比例 (動態)
-        document.getElementById('floating-mdd-val').textContent = `${floatMDD.toFixed(2)} pts (${pct(cmpW.floating_mdd_reduction_pct)})`; // 浮動回撤降低 (動態)
-        document.getElementById('pyr-mae-val').textContent = `${pyrMAE.toFixed(2)} pts (${pct(cmpW.pyr_mae_reduction_pct)})`; // 加碼單浮虧降低 (動態)
-    } else { // 4 年數據
-        document.getElementById('float-loss-compare-val').textContent = `${floatClose.toFixed(2)} pts (4年極限抗壓)`; // 4年浮虧
-        document.getElementById('floating-mdd-val').textContent = `${floatMDD.toFixed(2)} pts (${pct(cmpW.floating_mdd_reduction_pct)})`; // 4年浮動回撤 (動態)
-        document.getElementById('pyr-mae-val').textContent = `${pyrMAE.toFixed(2)} pts (全週期鎖定在安全區)`; // 4年加碼浮虧
-    } // 判斷結束
-    
+    // 3. 🛡️ 目前回撤卡 (以 Current DD 為主要顯示數值)
+    const curDD = metrics.current_drawdown; // 目前回撤點數
+    const curDDPct = metrics.current_drawdown_pct; // 目前回撤佔權益峰值比例
+    const card3Main = document.getElementById('card3-current-dd-val'); // 主數值元素
+    if (card3Main) {
+        card3Main.textContent = typeof curDD === 'number' ? `-${curDD.toFixed(2)} pts` : '— pts'; // 以負號呈現，明確表示為回撤
+        // 依回撤佔比動態配色：<5% 綠、5~15% 橘、>15% 紅
+        card3Main.className = 'card-main-val ' + (typeof curDDPct !== 'number' ? '' : curDDPct < 5 ? 'positive-val' : curDDPct < 15 ? 'defense-val' : 'negative-val');
+    }
+    const ddBadge = document.getElementById('current-dd-badge'); // 回撤狀態標籤
+    if (ddBadge) {
+        ddBadge.textContent = typeof curDDPct !== 'number' ? '—' : curDDPct < 5 ? '🟢 接近權益高點' : curDDPct < 15 ? '🟡 回撤修正中' : '🔴 深度回撤中';
+    }
+    document.getElementById('current-dd-pct-val').textContent = typeof curDDPct === 'number' ? `${curDDPct.toFixed(2)}%` : '—'; // 回撤佔比
+    document.getElementById('card3-mdd-val').textContent = fmtPts(metrics.max_drawdown); // 歷史 MDD
+    document.getElementById('floating-mdd-val').textContent = fmtPts(metrics.floating_drawdown_points); // 浮動回撤
+    document.getElementById('float-loss-compare-val').textContent = fmtPts(metrics.max_instant_float_loss_close ?? metrics.max_instant_float_loss); // 單點浮虧
+    document.getElementById('pyr-mae-val').textContent = fmtPts(metrics.worst_pyramid_mae); // 加碼單浮虧
+
     // 4. 總績效與 Calmar
-    const totalPnl = metrics.total_pnl_points || 0.0; // 總損益
+    const totalPnl = metrics.total_pnl_points; // 總損益
     const totalPnlEl = document.getElementById('total-pnl-val'); // DOM
-    totalPnlEl.textContent = `${totalPnl >= 0 ? '+' : ''}${totalPnl.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} pts`; // 格式化輸出
-    totalPnlEl.className = 'card-main-val ' + (totalPnl >= 0 ? 'positive-val' : 'negative-val'); // 配色
-    
-    document.getElementById('calmar-ratio-val').textContent = metrics.calmar_ratio || '7.44'; // Calmar
-    document.getElementById('sharpe-ratio-val').textContent = metrics.sharpe_ratio || '2.57'; // Sharpe
-    document.getElementById('pf-winrate-val').textContent = `${metrics.profit_factor || '1.82'} (${metrics.win_rate || '40.5'}%)`; // PF & 勝率
-    
-    const mddPts = metrics.max_drawdown || 321.62; // MDD
-    document.getElementById('mdd-val').textContent = `${mddPts.toFixed(2)} pts (${pct(cmpW.mdd_reduction_pct)})`; // MDD 顯示 (降幅動態計算)
-    
-    // 目前已平倉回撤 (Current DD) 顯示
-    const curDD = metrics.current_drawdown || (is2Yr ? 173.94 : 313.81); // 當前回撤點數
-    const curDDPct = metrics.current_drawdown_pct || (is2Yr ? 4.28 : 12.50); // 當前回撤比例
-    const curDDText = `${curDD.toFixed(2)} pts (${curDDPct.toFixed(2)}%)`; // 格式化目前回撤字串
-    const elCurDD = document.getElementById('current-dd-val'); // 取得卡片4目前回撤元素
-    if (elCurDD) elCurDD.textContent = curDDText; // 更新卡片4目前回撤文字
-    const elCard3CurDD = document.getElementById('card3-current-dd-val'); // 取得卡片3目前回撤元素
-    if (elCard3CurDD) elCard3CurDD.textContent = curDDText; // 更新卡片3目前回撤文字 (移除寫死的對照百分比)
+    if (typeof totalPnl === 'number') {
+        totalPnlEl.textContent = `${totalPnl >= 0 ? '+' : ''}${totalPnl.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} pts`; // 格式化輸出
+        totalPnlEl.className = 'card-main-val ' + (totalPnl >= 0 ? 'positive-val' : 'negative-val'); // 配色
+    } else {
+        totalPnlEl.textContent = '— pts'; // 無資料佔位
+    }
+
+    document.getElementById('calmar-ratio-val').textContent = fmtNum(metrics.calmar_ratio); // Calmar
+    document.getElementById('sharpe-ratio-val').textContent = fmtNum(metrics.sharpe_ratio); // Sharpe
+    document.getElementById('pf-winrate-val').textContent = (typeof metrics.profit_factor === 'number' && typeof metrics.win_rate === 'number') ? `${metrics.profit_factor} (${metrics.win_rate}%)` : '—'; // PF & 勝率
+    document.getElementById('mdd-val').textContent = fmtPts(metrics.max_drawdown); // MDD (移除與非同基準舊版的對照百分比)
+    const elCurDD = document.getElementById('current-dd-val'); // 卡片4的目前回撤
+    if (elCurDD) elCurDD.textContent = (typeof curDD === 'number' && typeof curDDPct === 'number') ? `-${curDD.toFixed(2)} pts (${curDDPct.toFixed(2)}%)` : '—'; // 同步顯示
     
     // 5. Alpha 動能與 FTMO 風控
     const a1 = (status.alpha_1d * 100).toFixed(1); // 1D Alpha

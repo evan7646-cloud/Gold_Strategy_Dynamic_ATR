@@ -42,6 +42,9 @@
                     <span class="pulse-dot"></span> <!-- 動態閃爍圓點 -->
                     <span id="last-updated-text">數據載入中...</span> <!-- 即時更新時間文字 -->
                 </div> <!-- 狀態標籤結束 -->
+                <div class="system-status-pill" style="background: rgba(255,255,255,0.04);"> <!-- 資料源標註 -->
+                    <span id="data-source-text" style="color: #90a4ae; font-size: 0.85em;">—</span> <!-- 資料源與 K 棒切分說明 (動態填入) -->
+                </div> <!-- 資料源標註結束 -->
             </div> <!-- 頂部右側結束 -->
         </header> <!-- 頂部標題列結束 -->
 
@@ -76,18 +79,19 @@
                 </div> <!-- 數據細節結束 -->
             </div> <!-- 卡片 2 結束 -->
 
-            <!-- 卡片 3：🛡️ 浮動虧損防禦成效卡 (核心亮點) -->
-            <div class="card glass-card highlight-defense-card"> <!-- 亮色防禦強調卡片 -->
+            <!-- 卡片 3：🛡️ 風險現況 (以「目前回撤」為主要顯示數值) -->
+            <div class="card glass-card highlight-defense-card"> <!-- 風險狀態卡片 -->
                 <div class="card-header-line"> <!-- 卡片頂部列 -->
-                    <span class="card-title">🛡️ 浮動虧損防禦成效 (Risk Safeguard)</span> <!-- 卡片小標題 -->
-                    <span class="badge-mini badge-green" id="float-loss-badge">浮虧防禦 🚀</span> <!-- 迷你亮點標籤 -->
+                    <span class="card-title">🛡️ 目前回撤 (Current Drawdown)</span> <!-- 卡片小標題 -->
+                    <span class="badge-mini" id="current-dd-badge">—</span> <!-- 回撤狀態標籤 (依嚴重程度動態變色) -->
                 </div> <!-- 頂部列結束 -->
-                <div class="card-main-val defense-val" id="max-float-loss-val">— pts</div> <!-- 單點最大浮虧 -->
-                <div class="card-detail"> <!-- 防禦細節對比 -->
-                    <div class="detail-row"><span>單點最大未平倉浮虧:</span><strong id="float-loss-compare-val" class="highlight-green">—</strong></div> <!-- 浮虧對比 -->
-                    <div class="detail-row"><span>浮動淨值最大回撤:</span><strong id="floating-mdd-val" class="highlight-green">—</strong></div> <!-- 浮動回撤 -->
-                    <div class="detail-row"><span>加碼單最大逆向浮虧:</span><strong id="pyr-mae-val" class="highlight-green">—</strong></div> <!-- 加碼單浮虧 -->
-                    <div class="detail-row"><span>目前已平倉回撤 (Current DD):</span><strong id="card3-current-dd-val" style="color: #ffb74d;">—</strong></div> <!-- 目前回撤對比 -->
+                <div class="card-main-val" id="card3-current-dd-val">— pts</div> <!-- 目前回撤 (主要數值) -->
+                <div class="card-detail"> <!-- 風險細節 -->
+                    <div class="detail-row"><span>距權益高點:</span><strong id="current-dd-pct-val">—</strong></div> <!-- 目前回撤佔峰值比例 -->
+                    <div class="detail-row"><span>歷史最大回撤 (MDD):</span><strong id="card3-mdd-val">—</strong></div> <!-- 歷史 MDD -->
+                    <div class="detail-row"><span>浮動淨值最大回撤:</span><strong id="floating-mdd-val">—</strong></div> <!-- 浮動回撤 -->
+                    <div class="detail-row"><span>單點最大未平倉浮虧:</span><strong id="float-loss-compare-val">—</strong></div> <!-- 單點浮虧 -->
+                    <div class="detail-row"><span>加碼單最大逆向浮虧:</span><strong id="pyr-mae-val">—</strong></div> <!-- 加碼單浮虧 -->
                 </div> <!-- 細節結束 -->
             </div> <!-- 卡片 3 結束 -->
 
@@ -115,9 +119,10 @@
                 </div> <!-- 頂部列結束 -->
                 <div class="card-main-val" id="alpha-status-val">多頭強勢</div> <!-- Alpha 綜合狀態 -->
                 <div class="card-detail"> <!-- 風控細節 -->
-                    <div class="detail-row"><span>Alpha 1D / 5D / 10D:</span><strong id="alpha-values-row">+0.2% / +1.1% / +3.4%</strong></div> <!-- Alpha 動能 -->
-                    <div class="detail-row"><span>FTMO 日內 4.5% 熔斷:</span><strong style="color: #00e676;">🟢 100% 運行安全</strong></div> <!-- FTMO 日內狀態 -->
-                    <div class="detail-row"><span>總帳戶 9.0% 熔斷:</span><strong style="color: #00e676;">🟢 遠離死線無風險</strong></div> <!-- FTMO 總額狀態 -->
+                    <div class="detail-row"><span>Alpha 1D / 5D / 10D:</span><strong id="alpha-values-row">—</strong></div> <!-- Alpha 動能 -->
+                    <!-- FTMO 熔斷狀態需連接實盤帳戶權益才能判定，本頁為回測結果展示，故僅列出 EA 設定值 -->
+                    <div class="detail-row"><span>EA 日內熔斷設定:</span><strong style="color: #90a4ae;">4.5%（實際狀態需於 MT5 查看）</strong></div> <!-- FTMO 日內設定 -->
+                    <div class="detail-row"><span>EA 總帳戶熔斷設定:</span><strong style="color: #90a4ae;">9.0%（實際狀態需於 MT5 查看）</strong></div> <!-- FTMO 總額設定 -->
                 </div> <!-- 風控細節結束 -->
             </div> <!-- 卡片 5 結束 -->
 
