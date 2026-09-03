@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+ // 頭部註釋
-//|              Gold_4H_30MA_51Bitquant_Adaptive_Offset+0h_FTMO.mq5 | // 檔名與模組註釋
-//|                               黃金 4H 30MA 51Bitquant 波動度自適應調倉 FTMO 版 EA (+0h Offset) | // 版權與模組說明
+//|              Gold_4H_30MA_51Bitquant_Adaptive_Offset+2h_FTMO.mq5 | // 檔名與模組註釋
+//|                黃金 4H 30MA 51Bitquant 波動度自適應調倉 FTMO 版 EA (+2h Offset 錯開版) | // 版權與模組說明
 //|                       Copyright 2026, Gold Strategy Watch        | // 版權聲明註釋
 //+------------------------------------------------------------------+ // 分隔線註釋
 #property copyright "Copyright 2026, Gold Strategy Watch" // 程式版權資訊
@@ -11,8 +11,8 @@
 #include <Trade\Trade.mqh> // 引用 MT5 官方交易庫
 
 //--- 策略參數設定 (與最終版 Gold_4H_30MA_add2.0>3%_Strategy_Offset+0h.mq5 100% 同步)
-input ulong    InpMagicMain              = 44440001;         // 主部位 Magic Number 識別碼 (同步最終版 44440001)
-input ulong    InpMagicPyramid           = 44440002;         // 加碼部位 Magic Number 識別碼 (同步最終版 44440002)
+input ulong    InpMagicMain              = 44440011;         // 主部位 Magic Number (與 +0h 版錯開，兩實例部位互不干擾)
+input ulong    InpMagicPyramid           = 44440012;         // 加碼部位 Magic Number (與 +0h 版錯開)
 input double   InpLotSize                = 0.10;             // 初始交易手數 (Standard Lots)
 input bool     InpEnablePyramid          = true;             // 是否啟用加碼機制 (True/False)
 input double   InpPyramidBoostMultiplier = 2.0;              // Alpha 強烈時加碼手數基準倍率 (預設 2.0 倍)
@@ -29,7 +29,7 @@ input double   InpCurvatureThreshold     = 0.010;            // 曲率門檻：d
 input int      InpCurvatureSpan          = 3;                // 微分跨度 (4H K棒數，實測 n=3 最佳)
 
 //--- 4H K 棒時間網格偏移 (可跑多個實例錯開觀察時點，避免 4 小時內錯過大行情)
-input int      InpBarOffsetHours         = 0;                // 4H 網格偏移小時 (0 = 00/04/08/12/16/20 UTC；2 = 02/06/10/14/18/22 UTC)
+input int      InpBarOffsetHours         = 2;                // 4H 網格偏移小時 (本版預設 2 = 02/06/10/14/18/22 UTC)
 
 //--- 指標週期參數宣告 (修復未定義編譯錯誤)
 input int      InpMA4H_Period            = 30;               // 4H 均線 (SMA) 週期 (預設 30MA)
@@ -42,7 +42,7 @@ input int      InpMA60_Period            = 60;               // 日線 60MA 週�
 input double   InpInitialBalance         = 100000.0;         // FTMO 帳戶初始資金 (0.0 表示不開啟總虧損熔斷)
 input double   InpMaxDailyLossPct        = 4.5;              // 每日最大虧損限制比例 (%) (例如 4.5%)
 input double   InpMaxTotalLossPct        = 9.0;              // 帳戶總最大虧損限制比例 (%) (例如 9.0%)
-input bool     InpCloseAllAccountPos     = true;             // 熔斷時是否強制平倉帳戶內「所有」頭寸 ⚠️ 若同時運行 +2h 版，務必改為 false，否則會連帶平掉另一實例的部位
+input bool     InpCloseAllAccountPos     = false;            // ⚠️ 雙實例運行時務必設為 false，否則本實例熔斷會連帶平掉 +0h 版的部位
 input bool     InpEnableAlerts           = true;             // 是否開啟 FTMO 風控與交易通知
 
 //--- 全域變數宣告
@@ -976,7 +976,7 @@ void UpdateChartDashboard() // 更新圖表 HUD 儀表板
 
    string hud = ""; // 初始化儀表板字串
    hud += "══════════════════════════════════════════════════════════════════\n"; // 拼接儀表板頂部分隔線
-   hud += " ⚡ XAUUSD 4H 30MA 51Bitquant 波動度自適應調倉 EA (FTMO 版)\n"; // 系統標題文字
+   hud += " ⚡ XAUUSD 4H 30MA 51Bitquant 調倉 EA (FTMO 版) [+2h 錯開網格]\n"; // 系統標題文字
    hud += "══════════════════════════════════════════════════════════════════\n"; // 拼接標題分隔線
    hud += StringFormat(" 📈 大趨勢體制 (Regime 50SMA): %s\n", g_RegimeBull ? "🟢 牛市多頭 (Long Only)" : "🔴 熊市空頭 (Short Only)"); // 體制狀態資訊
    hud += StringFormat(" ⚡ 4H 14ATR 波動度: %.2f 點 (基準: %.1f 點) | %s\n", curATR, InpBaselineATR, volRisk); // 波動度即時狀態
