@@ -42,7 +42,7 @@ input int      InpMA60_Period            = 60;               // 日線 60MA 週�
 input double   InpInitialBalance         = 100000.0;         // FTMO 帳戶初始資金 (0.0 表示不開啟總虧損熔斷)
 input double   InpMaxDailyLossPct        = 4.5;              // 每日最大虧損限制比例 (%) (例如 4.5%)
 input double   InpMaxTotalLossPct        = 9.0;              // 帳戶總最大虧損限制比例 (%) (例如 9.0%)
-input bool     InpCloseAllAccountPos     = true;             // 熔斷時是否強制平倉帳戶內「所有」頭寸 ⚠️ 若同時運行 +2h 版，務必改為 false，否則會連帶平掉另一實例的部位
+input bool     InpCloseAllAccountPos     = false;            // 熔斷時是否強制平倉帳戶內「所有」頭寸 (雙實例運行故設為 false，僅平本實例 Magic 的部位)
 input bool     InpEnableAlerts           = true;             // 是否開啟 FTMO 風控與交易通知
 
 //--- 全域變數宣告
