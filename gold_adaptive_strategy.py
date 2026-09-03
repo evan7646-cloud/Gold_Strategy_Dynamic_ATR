@@ -502,6 +502,22 @@ def run_backtest():  # 執行自適應策略回測主程式
         'atr14_4h': float(latest_row['atr14_4h']),  # 當前 ATR
         'baseline_atr': baseline_atr_setting,  # 基準 ATR
         'volatility_scale': round(baseline_atr_setting / max(float(latest_row['atr14_4h']), 4.0), 2),  # 當前波動度手數乘數
+        # 訊號診斷：揭露目前各項條件的成立與否，便於與 MT5 上的 EA 逐項對照
+        'signal_diagnostics': {
+            'is_bull_regime': bool(latest_row['daily_close_avail'] > latest_row['daily_ma50_avail']),  # 日線 50MA 體制
+            'close_above_ma30': bool(latest_row['close'] > latest_row['ma30_4h']),  # 收盤是否站上 4H 30MA
+            'momentum_positive': bool(latest_row['dy_raw'] > 0),  # 動能 (較前一根收高)
+            'curvature': round(float(latest_row['ma30_d2']), 5),  # 30MA 二次微分 (曲率)
+            'curvature_threshold': -CURVATURE_THRESHOLD,  # 曲率門檻
+            'curvature_pass': bool(latest_row['ma30_d2'] > -CURVATURE_THRESHOLD),  # 曲率是否通過
+            'sig_long_4h': bool(latest_row['sig_long_4h']),  # 綜合後的 4H 多頭訊號
+            'pyramid_long_ok': bool((latest_row['daily_alpha1_avail'] > 0) and (latest_row['daily_alpha5_avail'] > 0)
+                                    and (latest_row['daily_alpha10_avail'] > 0)
+                                    and (latest_row['daily_ma20_avail'] > latest_row['daily_ma60_avail'])),  # 加多條件
+            'pyramid_short_ok': bool((latest_row['daily_alpha1_avail'] < 0) and (latest_row['daily_alpha5_avail'] < 0)
+                                     and (latest_row['daily_alpha10_avail'] < 0)
+                                     and (latest_row['daily_ma20_avail'] < latest_row['daily_ma60_avail'])),  # 加空條件
+        },
         'daily_ma50': float(latest_row['daily_ma50_avail']),  # 50MA
         'daily_ma20': float(latest_row['daily_ma20_avail']),  # 20MA
         'daily_ma60': float(latest_row['daily_ma60_avail']),  # 60MA

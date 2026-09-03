@@ -8,6 +8,17 @@
     "atr14_4h": 41.26357142857153,
     "baseline_atr": 16.0,
     "volatility_scale": 0.39,
+    "signal_diagnostics": {
+      "is_bull_regime": true,
+      "close_above_ma30": false,
+      "momentum_positive": false,
+      "curvature": 0.00476,
+      "curvature_threshold": -0.01,
+      "curvature_pass": true,
+      "sig_long_4h": false,
+      "pyramid_long_ok": false,
+      "pyramid_short_ok": false
+    },
     "daily_ma50": 4211.4694,
     "daily_ma20": 4430.4884999999995,
     "daily_ma60": 4213.1195,

@@ -48,6 +48,20 @@
             </div> <!-- 頂部右側結束 -->
         </header> <!-- 頂部標題列結束 -->
 
+        <!-- 目前應持倉狀態：策略當下應該持有的部位，供與 MT5 上的 EA 逐項對照 -->
+        <section class="chart-section glass-panel" id="position-section"> <!-- 持倉狀態面板 -->
+            <div class="panel-header"> <!-- 面板標題列 -->
+                <div class="panel-title-group"> <!-- 標題群組 -->
+                    <h2>📌 目前應持倉狀態 (Current Position)</h2> <!-- 區塊標題 -->
+                    <span class="panel-subinfo">依最新一根已收盤 4H K 線計算，可與 MT5 上 EA 的實際持倉逐項核對；若不一致代表 EA 狀態需檢查</span> <!-- 說明 -->
+                </div> <!-- 群組結束 -->
+                <span class="badge-mini" id="position-updated">—</span> <!-- 計算基準時間 -->
+            </div> <!-- 標題列結束 -->
+            <div id="position-body"> <!-- 持倉內容 (由 app.js 動態產生) -->
+                <div class="card-main-val">—</div> <!-- 載入前佔位 -->
+            </div> <!-- 內容結束 -->
+        </section> <!-- 持倉狀態區塊結束 -->
+
         <!-- 第一區：核心關鍵績效與風控卡片網格 -->
         <section class="cards-grid"> <!-- 統計卡片網格系統 -->
             

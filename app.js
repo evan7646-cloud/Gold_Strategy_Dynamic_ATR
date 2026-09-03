@@ -67,6 +67,81 @@ function applyDatasetMode(mode) { // 套用指定數據集並繪製介面函數
     } // 判斷結束
 } // applyDatasetMode 結束
 
+function renderCurrentPosition(status) { // 渲染「目前應持倉狀態」
+    const body = document.getElementById('position-body'); // 內容容器
+    const upd = document.getElementById('position-updated'); // 基準時間標籤
+    if (!body) return; // 元素不存在則跳過
+    if (upd) upd.textContent = status.last_updated ? `基準：${status.last_updated}` : '—'; // 顯示計算基準時間
+
+    const pos = status.active_positions || []; // 目前部位清單
+    const d = status.signal_diagnostics || {}; // 訊號診斷
+
+    // 條件檢查列：逐項顯示成立與否，方便與 EA 對照
+    const chk = (label, ok, extra) => `
+        <div class="detail-row">
+            <span>${label}</span>
+            <strong style="color:${ok ? '#00e676' : '#ff6e6e'}">${ok ? '✅ 成立' : '❌ 不成立'}${extra ? ' ' + extra : ''}</strong>
+        </div>`; // 單列檢查結果
+
+    let posHtml; // 持倉區塊 HTML
+    if (pos.length === 0) { // 空手
+        posHtml = `
+            <div class="card glass-card">
+                <div class="card-header-line">
+                    <span class="card-title">部位方向</span>
+                    <span class="badge-mini">Flat</span>
+                </div>
+                <div class="card-main-val" style="color:#90a4ae;">🚫 空手 (無持倉)</div>
+                <div class="card-detail">
+                    <div class="detail-row"><span>說明:</span><strong>目前不符合進場條件，EA 應無持倉</strong></div>
+                </div>
+            </div>`; // 空手卡片
+    } else { // 有持倉
+        posHtml = pos.map(p => {
+            const isLong = p.type === 'Long'; // 多空判定
+            const pnl = p.unrealized_pnl; // 未實現損益
+            return `
+            <div class="card glass-card">
+                <div class="card-header-line">
+                    <span class="card-title">${p.is_pyramid ? '加碼部位 (Pyramid)' : '主部位 (Main)'}</span>
+                    <span class="badge-mini">${p.units}x 手數</span>
+                </div>
+                <div class="card-main-val ${isLong ? 'positive-val' : 'negative-val'}">
+                    ${isLong ? '🟢 做多 (Long)' : '🔴 做空 (Short)'}
+                </div>
+                <div class="card-detail">
+                    <div class="detail-row"><span>進場時間:</span><strong>${p.entry_date}</strong></div>
+                    <div class="detail-row"><span>進場價:</span><strong>${p.entry_price.toFixed(2)}</strong></div>
+                    <div class="detail-row"><span>移動停損價:</span><strong style="color:#ffb74d;">${p.stop_price.toFixed(2)}</strong></div>
+                    <div class="detail-row"><span>未實現損益:</span><strong class="${pnl >= 0 ? 'highlight-green' : ''}" style="color:${pnl >= 0 ? '#00e676' : '#ff6e6e'}">${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)} pts</strong></div>
+                </div>
+            </div>`; // 持倉卡片
+        }).join(''); // 合併多個部位
+    } // 判斷結束
+
+    // 訊號條件診斷卡
+    const diagHtml = `
+        <div class="card glass-card">
+            <div class="card-header-line">
+                <span class="card-title">🔍 進場條件檢查</span>
+                <span class="badge-mini">${d.sig_long_4h ? '多頭訊號成立' : '多頭訊號不成立'}</span>
+            </div>
+            <div class="card-detail" style="margin-top:8px;">
+                ${chk('日線體制 (Close > 50MA)', !!d.is_bull_regime, d.is_bull_regime ? '多頭' : '空頭')}
+                ${chk('收盤 > 4H 30MA', !!d.close_above_ma30)}
+                ${chk('動能 > 0 (較前根收高)', !!d.momentum_positive)}
+                ${chk('曲率過濾 (二次微分)', !!d.curvature_pass, `d2=${d.curvature}`)}
+                <div class="detail-row" style="border-top:1px solid rgba(255,255,255,0.1); margin-top:6px; padding-top:6px;">
+                    <span>綜合 4H 多頭訊號:</span>
+                    <strong style="color:${d.sig_long_4h ? '#00e676' : '#ff6e6e'}">${d.sig_long_4h ? '✅ 成立' : '❌ 不成立'}</strong>
+                </div>
+                <div class="detail-row"><span>加碼條件 (多 / 空):</span><strong>${d.pyramid_long_ok ? '✅' : '❌'} / ${d.pyramid_short_ok ? '✅' : '❌'}</strong></div>
+            </div>
+        </div>`; // 診斷卡片
+
+    body.innerHTML = `<div class="cards-grid">${posHtml}${diagHtml}</div>`; // 寫入容器
+} // renderCurrentPosition 結束
+
 function renderRollingPerformance(rolling) { // 渲染近期滾動績效卡片
     const section = document.getElementById('rolling-section'); // 區塊容器
     const grid = document.getElementById('rolling-cards'); // 卡片容器
@@ -194,6 +269,7 @@ function renderStatusCards(status, metrics, goldChartData, mode) { // 渲染頂�
     if (elCurDD) elCurDD.textContent = (typeof curDD === 'number' && typeof curDDPct === 'number') ? `-${curDD.toFixed(2)} pts (${curDDPct.toFixed(2)}%)` : '—'; // 同步顯示
     
     // 4.5 近期滾動績效 (僅短期模式提供；長期模式隱藏該區塊)
+    renderCurrentPosition(status);
     renderRollingPerformance(metrics.rolling_performance);
 
     // 5. Alpha 動能與 FTMO 風控
