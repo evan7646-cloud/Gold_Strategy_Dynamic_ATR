@@ -35,6 +35,29 @@ jobs:
         env:
           PYTHONUNBUFFERED: '1'  # 即時輸出 log
 
+      # ⚠️ 必須接著執行長期回測：gold_adaptive_strategy.py 會「完整覆寫」strategy_results.json，
+      #    而 metrics_4yr 是由 run_4yr_backtest.py 事後補寫進去的。若略過此步，
+      #    每次排程更新都會把長期回測資料刪除，導致網頁的長期壓力測試卡片沒有資料。
+      - name: 🌐 Run long-period backtest  # 執行長期回測並補寫 metrics_4yr
+        run: python run_4yr_backtest.py  # 讀取 strategy_results.json 並加入 metrics_4yr
+        env:
+          PYTHONUNBUFFERED: '1'  # 即時輸出 log
+
+      - name: ✅ Verify results integrity  # 驗證 JSON 完整性，避免推送殘缺資料
+        run: |
+          python - <<'PY'
+          import json, sys
+          d = json.load(open('strategy_results.json'))
+          missing = [k for k in ('current_status', 'metrics', 'metrics_4yr', 'completed_trades') if k not in d]
+          if missing:
+              print(f"::error::strategy_results.json 缺少必要欄位: {missing}")
+              sys.exit(1)
+          if 'rolling_performance' not in d['metrics']:
+              print("::error::metrics 缺少 rolling_performance")
+              sys.exit(1)
+          print(f"✅ 驗證通過: 短期 {d['metrics']['total_trades']} 筆 / 長期 {d['metrics_4yr']['total_trades']} 筆")
+          PY
+
       - name: 📊 Check if data changed  # 檢查檔案是否變更
         id: check_changes
         run: |
@@ -49,7 +72,7 @@ jobs:
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add strategy_results.json pepperstone_xauusd_4h.csv pepperstone_xauusd_daily.csv pepperstone_usdx_daily.csv backtest_equity_curve_adaptive.png all_trades_detail_adaptive.csv
+          git add strategy_results.json pepperstone_xauusd_4h.csv pepperstone_xauusd_daily.csv pepperstone_usdx_daily.csv backtest_equity_curve_adaptive.png all_trades_detail_adaptive.csv backtest_equity_curve_4yr_adaptive.png all_trades_4yr_adaptive.csv
           git commit -m "🤖 Auto-update: 51Bitquant ATR Strategy Data $(date -u +'%Y-%m-%d %H:%M UTC')"
           git push
 
