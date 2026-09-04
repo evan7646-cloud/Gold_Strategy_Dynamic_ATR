@@ -38,10 +38,23 @@ input int      InpMA50_Period            = 50;               // 日線 50MA 週�
 input int      InpMA20_Period            = 20;               // 日線 20MA 週期 (加倉過濾)
 input int      InpMA60_Period            = 60;               // 日線 60MA 週期 (加倉過濾)
 
+//--- FTMO 帳戶類型 (依官方 trading objectives 之風控門檻)
+//    1-Step : 每日最大虧損 3%  / 總最大虧損 10%
+//    2-Step : 每日最大虧損 5%  / 總最大虧損 10%
+//    選定類型後 EA 會自動套用「略低於官方上限」的熔斷門檻並預留緩衝，
+//    避免在不同帳戶間切換時忘記調整參數而導致考核失敗。
+enum ENUM_FTMO_ACCOUNT_TYPE
+{
+   FTMO_2STEP = 0,  // 2-Step 考核 (每日 5% / 總 10%) -> 套用 4.5% / 9.0%
+   FTMO_1STEP = 1,  // 1-Step 考核 (每日 3% / 總 10%) -> 套用 2.5% / 9.0%
+   FTMO_MANUAL = 2  // 手動指定 (使用下方 InpMaxDailyLossPct / InpMaxTotalLossPct)
+};
+
 //--- FTMO 風控專屬參數
 input double   InpInitialBalance         = 100000.0;         // FTMO 帳戶初始資金 (0.0 表示不開啟總虧損熔斷)
-input double   InpMaxDailyLossPct        = 2.5;              // 每日最大虧損熔斷 (%) ⚠️ FTMO 1-Step 上限為 3%，此處設 2.5% 預留緩衝
-input double   InpMaxTotalLossPct        = 9.0;              // 帳戶總最大虧損熔斷 (%) (FTMO 1-Step 上限 10%，此處設 9% 預留緩衝)
+input ENUM_FTMO_ACCOUNT_TYPE InpFTMOAccountType = FTMO_2STEP; // FTMO 帳戶類型 (自動套用對應風控門檻，避免手動設錯)
+input double   InpMaxDailyLossPct        = 4.5;              // 每日最大虧損熔斷 (%) ※ 僅在帳戶類型選「手動」時生效
+input double   InpMaxTotalLossPct        = 9.0;              // 帳戶總最大虧損熔斷 (%) ※ 僅在帳戶類型選「手動」時生效
 input bool     InpCloseAllAccountPos     = false;            // 熔斷時是否強制平倉帳戶內「所有」頭寸 (雙實例運行故設為 false，僅平本實例 Magic 的部位)
 input bool     InpEnableAlerts           = true;             // 是否開啟 FTMO 風控與交易通知
 
@@ -54,6 +67,8 @@ datetime g_LastBarDaily     = 0;   // 上次執行的 Daily K 線時間
 bool     g_DailyReady       = false; // 日線過濾器是否就緒
 
 //--- FTMO 風控全域變數
+double   g_MaxDailyLossPct  = 4.5;   // 實際生效之每日虧損熔斷門檻 (依帳戶類型於 OnInit 決定)
+double   g_MaxTotalLossPct  = 9.0;   // 實際生效之總虧損熔斷門檻 (依帳戶類型於 OnInit 決定)
 double   g_SOD_Baseline     = 0.0;   // 今日 Start of Day 權益基準點
 datetime g_LastServerDate   = 0;     // 當前伺服器日期
 bool     g_DailyHalted      = false; // 今日是否觸發熔斷停止交易
@@ -316,13 +331,13 @@ void CheckAndResetDailySOD() // FTMO 每日風控邏輯
    double curEquity = AccountInfoDouble(ACCOUNT_EQUITY); // 取當前即時權益
    if(g_SOD_Baseline > 0.0) // 確保基準點有效
    { // 條件開頭
-      double dailyHardFloor = g_SOD_Baseline * (1.0 - InpMaxDailyLossPct / 100.0); // 計算當日死線金額
+      double dailyHardFloor = g_SOD_Baseline * (1.0 - g_MaxDailyLossPct / 100.0); // 計算當日死線金額
       if(curEquity <= dailyHardFloor) // 若即時權益跌破當日死線
       { // 條件開頭
          double actualLossPct = ((g_SOD_Baseline - curEquity) / g_SOD_Baseline) * 100.0; // 計算實際虧損比例
          g_DailyHalted = true; // 標記今日觸發熔斷
          SaveFTMOState(); // 保存狀態
-         PrintFormat("🚨🚨🚨 [FTMO 緊急風控熔斷] 即時權益 %.2f 跌破當日死線 %.2f！當日虧損 %.2f%% >= 門檻 %.2f%% (SOD Baseline: %.2f)", curEquity, dailyHardFloor, actualLossPct, InpMaxDailyLossPct, g_SOD_Baseline); // 印出日誌
+         PrintFormat("🚨🚨🚨 [FTMO 緊急風控熔斷] 即時權益 %.2f 跌破當日死線 %.2f！當日虧損 %.2f%% >= 門檻 %.2f%% (SOD Baseline: %.2f)", curEquity, dailyHardFloor, actualLossPct, g_MaxDailyLossPct, g_SOD_Baseline); // 印出日誌
          if(InpEnableAlerts) Alert("🚨 [FTMO 風控觸發] 當前權益跌破當日死線 ", DoubleToString(dailyHardFloor, 2), "！緊急全數平倉並停止今日交易！"); // 發送警報
          if(InpCloseAllAccountPos) CloseAllAccountPositions(); // 清空帳戶所有頭寸
          else { ClosePositionsByMagic(InpMagicMain); ClosePositionsByMagic(InpMagicPyramid); } // 僅清空本 EA 部位
@@ -335,7 +350,7 @@ void CheckAndResetDailySOD() // FTMO 每日風控邏輯
 
    if(InpInitialBalance > 0.0) // 確保初始資金參數有效
    { // 條件開頭
-      double totalHardFloor = InpInitialBalance * (1.0 - InpMaxTotalLossPct / 100.0); // 計算帳戶總死線
+      double totalHardFloor = InpInitialBalance * (1.0 - g_MaxTotalLossPct / 100.0); // 計算帳戶總死線
       if(curEquity <= totalHardFloor) // 觸及總最大虧損線
       { // 條件開頭
          g_DailyHalted = true; // 標記熔斷
@@ -936,6 +951,18 @@ int OnInit() // EA 初始化函數
    g_gvKeyLastServerDate = prefix + "LastServerDate";// 建立日期 Key
    g_gvKeyDailyHalted    = prefix + "DailyHalted";   // 建立熔斷狀態 Key
 
+   // 依 FTMO 帳戶類型自動套用風控門檻 (略低於官方上限以預留緩衝)
+   switch(InpFTMOAccountType)
+   { // switch 開頭
+      case FTMO_1STEP:  g_MaxDailyLossPct = 2.5; g_MaxTotalLossPct = 9.0; break; // 官方 3%/10%
+      case FTMO_2STEP:  g_MaxDailyLossPct = 4.5; g_MaxTotalLossPct = 9.0; break; // 官方 5%/10%
+      default:          g_MaxDailyLossPct = InpMaxDailyLossPct; g_MaxTotalLossPct = InpMaxTotalLossPct; break; // 手動模式
+   } // switch 結束
+   PrintFormat("🛡️ [FTMO 風控設定] 帳戶類型=%s | 每日熔斷=%.2f%% | 總熔斷=%.2f%%",
+               (InpFTMOAccountType==FTMO_1STEP ? "1-Step (官方上限 3%)" :
+                InpFTMOAccountType==FTMO_2STEP ? "2-Step (官方上限 5%)" : "手動指定"),
+               g_MaxDailyLossPct, g_MaxTotalLossPct); // 印出實際生效之風控門檻
+
    g_trade.SetExpertMagicNumber(InpMagicMain); // 設定預設 Magic Number
    g_trade.SetTypeFilling(GetValidFillingMode());  // 設定成交填單模式 (同步最終版 GetValidFillingMode)
 
@@ -956,7 +983,7 @@ int OnInit() // EA 初始化函數
    CheckAndResetDailySOD(); // 初始化 FTMO 每日風控基準
    ProcessNew4HBar(); // 開機自動補單與極速訊號判定 (同步最終版 L147)
 
-   PrintFormat("🚀 Gold 4H 30MA FTMO 版 EA 初始化成功！[MaxDailyLoss=%.1f%%, SOD_Baseline=%.2f]", InpMaxDailyLossPct, g_SOD_Baseline); // 印出日誌
+   PrintFormat("🚀 Gold 4H 30MA FTMO 版 EA 初始化成功！[MaxDailyLoss=%.1f%%, SOD_Baseline=%.2f]", g_MaxDailyLossPct, g_SOD_Baseline); // 印出日誌
    return(INIT_SUCCEEDED); // 回傳初始化成功
 } // 函數結束
 
@@ -998,7 +1025,7 @@ void UpdateChartDashboard() // 更新圖表 HUD 儀表板
    
    double currentEquity = AccountInfoDouble(ACCOUNT_EQUITY); // 當前帳戶淨值
    double floatingLoss = currentEquity - g_SOD_Baseline; // 今日浮動損益金額
-   double dailyLossLimit = g_SOD_Baseline * (InpMaxDailyLossPct / 100.0); // 4.5% 日內熔斷金額死線
+   double dailyLossLimit = g_SOD_Baseline * (g_MaxDailyLossPct / 100.0); // 日內熔斷金額死線 (依帳戶類型)
    double buffer = dailyLossLimit + floatingLoss; // 離熔斷剩餘安全緩衝額度
    
    ulong mainTicket = 0, pyrTicket = 0; // 持倉票號變數
@@ -1036,8 +1063,8 @@ void UpdateChartDashboard() // 更新圖表 HUD 儀表板
                           cvOK ? "🟢 動能正常，多單訊號可成立" : "🔴 動能衰竭中，暫停多單"); // 曲率狀態
    } // 條件結束
    hud += "──────────────────────────────────────────────────────────────────\n"; // 拼接資訊中隔線
-   hud += StringFormat(" 🛡️ FTMO 每日風控 (4.5%%): SOD基準=$%.2f | 當日浮動=%+$.2f\n", g_SOD_Baseline, floatingLoss); // FTMO 當日風控基準
-   hud += StringFormat(" 🚨 離 4.5%% 熔斷死線剩餘緩衝: $%.2f (%s)\n", buffer, g_DailyHalted ? "🔴 今日已熔斷停止交易" : "🟢 運行安全正常"); // 熔斷緩衝額度
+   hud += StringFormat(" 🛡️ FTMO 每日風控 (%.1f%%): SOD基準=$%.2f | 當日浮動=%+$.2f\n", g_MaxDailyLossPct, g_SOD_Baseline, floatingLoss); // FTMO 當日風控基準
+   hud += StringFormat(" 🚨 離 %.1f%% 熔斷死線剩餘緩衝: $%.2f (%s)\n", g_MaxDailyLossPct, buffer, g_DailyHalted ? "🔴 今日已熔斷停止交易" : "🟢 運行安全正常"); // 熔斷緩衝額度
    hud += "──────────────────────────────────────────────────────────────────\n"; // 拼接部位中隔線
    hud += StringFormat(" 💼 主持倉部位: %s\n", mainInfo); // 主持倉狀態資訊
    hud += StringFormat(" ➕ 加碼持倉: %s\n", pyrInfo); // 加碼部位狀態資訊
