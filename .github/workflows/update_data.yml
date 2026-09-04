@@ -58,6 +58,31 @@ jobs:
           print(f"✅ 驗證通過: 短期 {d['metrics']['total_trades']} 筆 / 長期 {d['metrics_4yr']['total_trades']} 筆")
           PY
 
+      # ⚠️ tvDatafeed 對 TradingView 的抓取偶爾會在 GitHub-hosted Runner 上被限流/封鎖而靜默失敗，
+      #    此時 download_data() 會退回本地舊快取，之後的 diff 判定為「無變更」而跳過 commit，
+      #    導致資料陳舊卻無任何錯誤訊息 (曾發生連續 3 天未察覺)。此步驟明確計算資料新鮮度，
+      #    只要判斷得出「這是新資料」就不算失敗；只有在明顯陳舊 (數個交易日未變) 時才示警。
+      - name: 🕐 Check data freshness  # 檢查資料新鮮度，陳舊時發出明顯警示
+        run: |
+          python - <<'PY'
+          import json
+          from datetime import datetime, timezone
+          d = json.load(open('strategy_results.json'))
+          last_str = d['current_status']['last_updated']
+          last_naive = datetime.strptime(last_str, '%Y-%m-%d %H:%M:%S')  # 資料時間戳記本身為 UTC+8 (台北時間)
+          from datetime import timedelta
+          last = (last_naive - timedelta(hours=8)).replace(tzinfo=timezone.utc)  # 換算為真正的 UTC 以正確比較
+          now = datetime.now(timezone.utc)
+          age_hours = (now - last).total_seconds() / 3600
+          # 黃金週末休市約 48 小時 (五收六日不開盤至日開盤)，故以 60 小時為警戒線，
+          # 平日應每 4~8 小時更新一次，超過 60 小時代表排程很可能已連續失敗多次
+          if age_hours > 60:
+              print(f"::warning::策略資料已 {age_hours:.1f} 小時未更新 (最後更新: {last_str})，"
+                    f"tvDatafeed 可能在此 Runner 上被限流/封鎖，請人工檢查或改用本機手動刷新")
+          else:
+              print(f"✅ 資料新鮮度正常：最後更新於 {age_hours:.1f} 小時前 ({last_str})")
+          PY
+
       - name: 📊 Check if data changed  # 檢查檔案是否變更
         id: check_changes
         run: |
