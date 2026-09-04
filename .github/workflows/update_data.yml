@@ -2,9 +2,8 @@ name: ⚡ Update 51Bitquant Dynamic ATR Strategy Data  # 工作流名稱
 
 on:
   schedule:
-    # 📌 台北時間 (UTC+8) 平日 4H 週期更新對照 (對應 UTC 02:00, 06:00, 10:00, 14:00, 18:00, 22:00)：
-    - cron: '0 2,6,10,14,18 * * 1-5'  # 盤中定時排程
-    - cron: '0 22 * * 0-4'  # 早盤開盤排程
+    # 📌 每小時更新一次 (週日~週五，UTC 全時段)，排除週六 (黃金全面休市，跑了也抓不到新資料)
+    - cron: '0 * * * 0-5'
 
   workflow_dispatch:  # 允許手動從 GitHub Actions 介面觸發
 
