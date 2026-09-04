@@ -40,8 +40,8 @@ input int      InpMA60_Period            = 60;               // 日線 60MA 週�
 
 //--- FTMO 風控專屬參數
 input double   InpInitialBalance         = 100000.0;         // FTMO 帳戶初始資金 (0.0 表示不開啟總虧損熔斷)
-input double   InpMaxDailyLossPct        = 4.5;              // 每日最大虧損限制比例 (%) (例如 4.5%)
-input double   InpMaxTotalLossPct        = 9.0;              // 帳戶總最大虧損限制比例 (%) (例如 9.0%)
+input double   InpMaxDailyLossPct        = 2.5;              // 每日最大虧損熔斷 (%) ⚠️ FTMO 1-Step 上限為 3%，此處設 2.5% 預留緩衝
+input double   InpMaxTotalLossPct        = 9.0;              // 帳戶總最大虧損熔斷 (%) (FTMO 1-Step 上限 10%，此處設 9% 預留緩衝)
 input bool     InpCloseAllAccountPos     = false;            // 熔斷時是否強制平倉帳戶內「所有」頭寸 (雙實例運行故設為 false，僅平本實例 Magic 的部位)
 input bool     InpEnableAlerts           = true;             // 是否開啟 FTMO 風控與交易通知
 
@@ -241,25 +241,69 @@ void CloseAllAccountPositions() // 平倉帳戶全數頭寸
 } // 函數結束
 
 //+------------------------------------------------------------------+
+//| 取得指定年月的最後一個週日 (LastSundayOfMonth)                      |
+//| 供計算歐洲夏令時間 (CE(S)T) 的切換日使用                            |
+//+------------------------------------------------------------------+
+datetime LastSundayOfMonth(int year, int month) // 回傳該月最後一個週日之零點
+{ // 函數開頭
+   int dim[12] = {31,28,31,30,31,30,31,31,30,31,30,31}; // 各月天數
+   int lastDay = dim[month - 1]; // 該月最後一天
+   if(month == 2 && ((year % 4 == 0 && year % 100 != 0) || year % 400 == 0)) lastDay = 29; // 閏年二月修正
+   MqlDateTime d; // 時間結構
+   d.year = year; d.mon = month; d.day = lastDay; d.hour = 0; d.min = 0; d.sec = 0; // 設為該月最後一天零點
+   datetime t = StructToTime(d); // 轉為時間戳
+   MqlDateTime chk; TimeToStruct(t, chk); // 解析以取得星期
+   return t - (datetime)(chk.day_of_week * 86400); // day_of_week 0=週日，往回推至最近的週日
+} // 函數結束
+
+//+------------------------------------------------------------------+
+//| 判斷指定 UTC 時點歐洲是否為夏令時間 (IsEuropeSummerTime)            |
+//| 歐盟規則：三月最後週日 01:00 UTC 起，至十月最後週日 01:00 UTC 止    |
+//+------------------------------------------------------------------+
+bool IsEuropeSummerTime(datetime utcTime) // 判斷是否 CEST (UTC+2)
+{ // 函數開頭
+   MqlDateTime d; TimeToStruct(utcTime, d); // 解析年份
+   datetime dstStart = LastSundayOfMonth(d.year, 3) + 3600;  // 夏令起始：三月最後週日 01:00 UTC
+   datetime dstEnd   = LastSundayOfMonth(d.year, 10) + 3600; // 夏令結束：十月最後週日 01:00 UTC
+   return (utcTime >= dstStart && utcTime < dstEnd); // 落在區間內即為夏令
+} // 函數結束
+
+//+------------------------------------------------------------------+
+//| 取得目前所屬「FTMO 交易日」識別碼 (GetFTMODayId)                    |
+//| ⚠️ FTMO 官方明訂每日虧損限額於 00:00 CE(S)T 重新計算，              |
+//|    而非 MT5 券商伺服器時間的午夜。以本券商 GMT+3 為例，             |
+//|    伺服器午夜比 FTMO 實際結算時點早 1~2 小時，若沿用伺服器時間，     |
+//|    EA 會在 FTMO 仍計入前一日的時段就提前重置額度，導致風控失準。      |
+//+------------------------------------------------------------------+
+datetime GetFTMODayId() // 回傳 CE(S)T 當日零點，作為交易日唯一識別
+{ // 函數開頭
+   datetime utcNow = TimeGMT(); // 取得標準 UTC 時間
+   int cetOffset = IsEuropeSummerTime(utcNow) ? 2 * 3600 : 1 * 3600; // CEST=UTC+2, CET=UTC+1
+   datetime cetNow = utcNow + (datetime)cetOffset; // 換算為 CE(S)T 當地時間
+   MqlDateTime d; TimeToStruct(cetNow, d); // 解析
+   d.hour = 0; d.min = 0; d.sec = 0; // 歸零時分秒
+   return StructToTime(d); // 回傳 CE(S)T 當日零點
+} // 函數結束
+
+//+------------------------------------------------------------------+
 //| FTMO 每日風控檢查與 SOD 基準重置 (CheckAndResetDailySOD)          |
 //+------------------------------------------------------------------+
 void CheckAndResetDailySOD() // FTMO 每日風控邏輯
 { // 函數開頭
-   datetime nowServer = TimeCurrent(); // 取得伺服器當前時間
-   MqlDateTime dt; // 時間結構體
-   TimeToStruct(nowServer, dt); // 轉為結構體
-   dt.hour = 0; dt.min = 0; dt.sec = 0; // 歸零時分秒
-   datetime todayDateOnly = StructToTime(dt); // 取得當天零點時間戳
+   // ⚠️ 以 00:00 CE(S)T 為交易日分界 (FTMO 官方計算方式)，非 MT5 伺服器午夜
+   datetime ftmoDayId = GetFTMODayId(); // 取得目前所屬之 FTMO 交易日
 
-   if(todayDateOnly != g_LastServerDate || g_SOD_Baseline == 0.0) // 若跨日跳至新一天或尚未初始化
+   if(ftmoDayId != g_LastServerDate || g_SOD_Baseline == 0.0) // 若進入新的 FTMO 交易日或尚未初始化
    { // 條件開頭
       double curBalance = AccountInfoDouble(ACCOUNT_BALANCE); // 當前餘額
-      double curEquity  = AccountInfoDouble(ACCOUNT_EQUITY);  // 當前權益
-      g_SOD_Baseline   = MathMax(curBalance, curEquity);     // 取餘額與權益之高者為今日 SOD 基準
-      g_LastServerDate = todayDateOnly;                      // 更新日期
+      double curEquity  = AccountInfoDouble(ACCOUNT_EQUITY);  // 當前權益 (僅供日誌參考)
+      // FTMO 明訂以「00:00 CE(S)T 當下的帳戶餘額」為每日虧損基準，
+      // 原本取 MathMax(餘額, 淨值) 會在有浮盈時墊高基準、使熔斷線過鬆，故改為僅取餘額
+      g_SOD_Baseline   = curBalance;                         // 以帳戶餘額為今日 SOD 基準 (對齊 FTMO 算法)
+      g_LastServerDate = ftmoDayId;                          // 更新交易日識別
       g_DailyHalted    = false;                              // 重置今日熔斷狀態
       SaveFTMOState();                                       // 保存狀態
-      PrintFormat("☀️ [FTMO 每日風控重置] 伺服器時間 00:00:00 重置成功！SOD Baseline = %.2f (Balance=%.2f, Equity=%.2f)", g_SOD_Baseline, curBalance, curEquity); // 印出日誌
+      PrintFormat("☀️ [FTMO 每日風控重置] 已進入新的 FTMO 交易日 (00:00 CE(S)T)！SOD Baseline = %.2f (Balance=%.2f, Equity=%.2f)", g_SOD_Baseline, curBalance, curEquity); // 印出日誌
       if(InpEnableAlerts) Alert("☀️ FTMO 每日風控重置！今日 SOD 基準價為 ", DoubleToString(g_SOD_Baseline, 2)); // 發送通知
    } // 條件結束
 
