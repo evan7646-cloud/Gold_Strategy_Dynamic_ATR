@@ -1,60 +1,50 @@
 {
   "current_status": {
-    "last_updated": "2026-09-08 08:00:00",
-    "gold_close": 4419.58,
-    "dxy_close": 98.848,
+    "last_updated": "2026-09-09 12:00:00",
+    "gold_close": 4374.99,
+    "dxy_close": 98.785,
     "regime": "Bull (牛市多頭)",
-    "ma4h_30": 4408.797666666666,
-    "atr14_4h": 31.39642857142865,
+    "ma4h_30": 4419.218333333333,
+    "atr14_4h": 29.90785714285708,
     "baseline_atr": 16.0,
-    "volatility_scale": 0.51,
+    "volatility_scale": 0.53,
     "signal_diagnostics": {
       "is_bull_regime": true,
-      "close_above_ma30": true,
+      "close_above_ma30": false,
       "momentum_positive": false,
-      "curvature": 0.00645,
+      "curvature": 0.00032,
       "curvature_threshold": -0.01,
       "curvature_pass": true,
       "sig_long_4h": false,
       "pyramid_long_ok": false,
       "pyramid_short_ok": false
     },
-    "daily_ma50": 4247.339,
-    "daily_ma20": 4466.9725,
-    "daily_ma60": 4229.0885,
-    "alpha_1d": -0.003145710210946784,
-    "alpha_5d": -0.004672584462078189,
-    "alpha_10d": -0.052148261149485564,
-    "active_positions": [
-      {
-        "type": "Long",
-        "is_pyramid": false,
-        "units": 1.0,
-        "entry_date": "2026-09-08 08:00:00",
-        "entry_price": 4423.13,
-        "stop_price": 4371.92,
-        "unrealized_pnl": -3.55
-      }
-    ]
+    "daily_ma50": 4254.302,
+    "daily_ma20": 4466.352,
+    "daily_ma60": 4229.4918333333335,
+    "alpha_1d": -0.010967199027312358,
+    "alpha_5d": 0.014312009583090313,
+    "alpha_10d": -0.06474755301631896,
+    "active_positions": []
   },
   "metrics": {
-    "total_trades": 484,
-    "total_pnl_points": 3939.74,
-    "unrealized_pnl_points": -3.55,
-    "realtime_total_pnl_points": 3936.19,
-    "win_rate": 41.53,
-    "profit_factor": 2.0,
+    "total_trades": 485,
+    "total_pnl_points": 3908.75,
+    "unrealized_pnl_points": 0.0,
+    "realtime_total_pnl_points": 3908.75,
+    "win_rate": 41.44,
+    "profit_factor": 1.98,
     "max_drawdown": 289.67,
-    "current_drawdown": 201.7,
-    "current_drawdown_pct": 4.87,
+    "current_drawdown": 232.69,
+    "current_drawdown_pct": 5.62,
     "floating_drawdown_points": 565.94,
     "max_instant_float_loss_close": -86.35,
     "max_instant_float_loss_worst": -106.81,
     "worst_single_mae": -102.9,
     "worst_pyramid_mae": -74.33,
-    "calmar_ratio": 8.21,
-    "sharpe_ratio": 3.02,
-    "annual_pnl_points": 2378.5,
+    "calmar_ratio": 8.13,
+    "sharpe_ratio": 2.99,
+    "annual_pnl_points": 2355.89,
     "years": 1.66,
     "data_start": "2025-01-10",
     "data_end": "2026-09-08",
@@ -71,53 +61,53 @@
       "pyr_mae_watch": -382.92,
       "pyr_mae_reduction_pct": 80.6,
       "calmar_watch": 6.58,
-      "calmar_improvement_pct": 24.8
+      "calmar_improvement_pct": 23.6
     },
     "cost_scenario_used": "razor_typical",
     "cost_sensitivity": {
       "razor_best": {
-        "total_pnl_points": 4043.34,
+        "total_pnl_points": 4012.42,
         "max_drawdown": 284.55,
-        "win_rate": 41.94,
-        "profit_factor": 2.04
+        "win_rate": 41.86,
+        "profit_factor": 2.02
       },
       "razor_typical": {
-        "total_pnl_points": 3939.74,
+        "total_pnl_points": 3908.75,
         "max_drawdown": 289.67,
-        "win_rate": 41.53,
-        "profit_factor": 2.0
+        "win_rate": 41.44,
+        "profit_factor": 1.98
       },
       "razor_stress": {
-        "total_pnl_points": 3599.23,
+        "total_pnl_points": 3567.79,
         "max_drawdown": 308.36,
-        "win_rate": 40.7,
-        "profit_factor": 1.87
+        "win_rate": 40.62,
+        "profit_factor": 1.86
       }
     },
     "rolling_performance": {
       "last_3m": {
-        "total_trades": 66,
-        "total_pnl_points": 402.36,
-        "win_rate": 37.88,
-        "profit_factor": 1.49,
+        "total_trades": 67,
+        "total_pnl_points": 371.37,
+        "win_rate": 37.31,
+        "profit_factor": 1.43,
         "max_drawdown": 289.67,
         "period_start": "2026-06-08",
         "period_end": "2026-09-08"
       },
       "last_6m": {
-        "total_trades": 119,
-        "total_pnl_points": 842.08,
-        "win_rate": 40.34,
-        "profit_factor": 1.55,
+        "total_trades": 120,
+        "total_pnl_points": 811.09,
+        "win_rate": 40.0,
+        "profit_factor": 1.52,
         "max_drawdown": 289.67,
         "period_start": "2026-03-08",
         "period_end": "2026-09-08"
       },
       "last_12m": {
         "total_trades": 291,
-        "total_pnl_points": 3209.63,
+        "total_pnl_points": 3186.45,
         "win_rate": 40.55,
-        "profit_factor": 2.07,
+        "profit_factor": 2.05,
         "max_drawdown": 289.67,
         "period_start": "2025-09-08",
         "period_end": "2026-09-08"
@@ -2785,7 +2775,14 @@
       "2026-09-07 20:00:00",
       "2026-09-08 00:00:00",
       "2026-09-08 04:00:00",
-      "2026-09-08 08:00:00"
+      "2026-09-08 08:00:00",
+      "2026-09-08 12:00:00",
+      "2026-09-08 16:00:00",
+      "2026-09-08 20:00:00",
+      "2026-09-09 00:00:00",
+      "2026-09-09 04:00:00",
+      "2026-09-09 08:00:00",
+      "2026-09-09 12:00:00"
     ],
     "open": [
       2670.28,
@@ -5442,7 +5439,14 @@
       4385.46,
       4414.31,
       4413.69,
-      4423.13
+      4423.13,
+      4437.66,
+      4392.36,
+      4406.28,
+      4394.96,
+      4358.72,
+      4349.75,
+      4375.02
     ],
     "high": [
       2678.15,
@@ -8099,7 +8103,14 @@
       4419.51,
       4417.43,
       4428.12,
-      4430.31
+      4440.82,
+      4443.1,
+      4407.97,
+      4412.65,
+      4403.65,
+      4364.42,
+      4384.4,
+      4375.47
     ],
     "low": [
       2667.21,
@@ -10756,7 +10767,14 @@
       4385.17,
       4402.94,
       4406.02,
-      4414.96
+      4414.96,
+      4389.97,
+      4387.76,
+      4385.39,
+      4356.63,
+      4345.62,
+      4341.17,
+      4374.58
     ],
     "close": [
       2668.35,
@@ -13413,7 +13431,14 @@
       4414.27,
       4406.05,
       4423.08,
-      4419.58
+      4437.67,
+      4392.26,
+      4406.46,
+      4394.89,
+      4359.4,
+      4349.76,
+      4375.11,
+      4374.99
     ],
     "ma30_8h": [
       2649.495,
@@ -16070,7 +16095,14 @@
       4410.821,
       4409.277333333333,
       4408.824,
-      4408.797666666666
+      4409.400666666666,
+      4409.9873333333335,
+      4411.107,
+      4413.358333333334,
+      4414.523666666666,
+      4416.068666666667,
+      4417.801666666667,
+      4419.218333333333
     ],
     "daily_ma50": [
       2652.0256,
@@ -18727,7 +18759,14 @@
       4239.5516,
       4239.5516,
       4247.339,
-      4247.339
+      4247.339,
+      4247.339,
+      4247.339,
+      4247.339,
+      4247.339,
+      4254.302,
+      4254.302,
+      4254.302
     ],
     "daily_ma20": [
       2639.903,
@@ -21384,7 +21423,14 @@
       4466.1885,
       4466.1885,
       4466.9725,
-      4466.9725
+      4466.9725,
+      4466.9725,
+      4466.9725,
+      4466.9725,
+      4466.9725,
+      4466.352,
+      4466.352,
+      4466.352
     ],
     "daily_ma60": [
       2662.677333333333,
@@ -24041,7 +24087,14 @@
       4227.475666666667,
       4227.475666666667,
       4229.0885,
-      4229.0885
+      4229.0885,
+      4229.0885,
+      4229.0885,
+      4229.0885,
+      4229.0885,
+      4229.4918333333335,
+      4229.4918333333335,
+      4229.4918333333335
     ],
     "atr14": [
       11.289999999999866,
@@ -26698,7 +26751,14 @@
       35.267142857142844,
       31.08928571428578,
       31.020714285714348,
-      31.39642857142865
+      32.14714285714289,
+      34.477142857142944,
+      33.710000000000036,
+      34.02499999999996,
+      29.447142857142744,
+      28.515714285714175,
+      31.122857142857033,
+      29.90785714285708
     ]
   },
   "dxy_chart_data": {
@@ -27131,7 +27191,8 @@
       "2026-09-03",
       "2026-09-04",
       "2026-09-07",
-      "2026-09-08"
+      "2026-09-08",
+      "2026-09-09"
     ],
     "open": [
       109.295,
@@ -27562,7 +27623,8 @@
       99.622,
       98.979,
       99.161,
-      98.838
+      98.838,
+      98.785
     ],
     "high": [
       110.075,
@@ -27993,7 +28055,8 @@
       99.632,
       99.414,
       99.216,
-      98.863
+      99.033,
+      98.83
     ],
     "low": [
       109.165,
@@ -28424,7 +28487,8 @@
       98.847,
       98.934,
       98.836,
-      98.798
+      98.723,
+      98.75
     ],
     "close": [
       109.735,
@@ -28855,7 +28919,8 @@
       99.017,
       99.169,
       98.921,
-      98.848
+      98.873,
+      98.785
     ],
     "ma20": [
       108.27959999999999,
@@ -29286,7 +29351,8 @@
       99.4014,
       99.37975,
       99.33534999999999,
-      99.28745
+      99.28869999999999,
+      99.22954999999999
     ],
     "ma60": [
       106.42596666666667,
@@ -29717,7 +29783,8 @@
       100.32718333333332,
       100.31651666666667,
       100.30385,
-      100.29176666666666
+      100.29218333333333,
+      100.26485000000001
     ]
   },
   "completed_trades": [
@@ -37464,6 +37531,22 @@
       "holding_hours": 0,
       "exit_reason": "Signal Exit",
       "trade_id": 484
+    },
+    {
+      "type": "Long",
+      "is_pyramid": false,
+      "units": 1.0,
+      "entry_date": "2026-09-08 08:00:00",
+      "entry_price": 4423.13,
+      "exit_date": "2026-09-08 16:00:00",
+      "exit_price": 4392.36,
+      "stop_price": 4373.87,
+      "pnl_points": -30.99,
+      "mae_points": -33.16,
+      "atr_at_exit": 34.48,
+      "holding_hours": 0,
+      "exit_reason": "Signal Exit",
+      "trade_id": 485
     }
   ],
   "chart_annotations": [
@@ -43618,6 +43701,14 @@
       "text": "Price: 4423.13",
       "shape": "arrowUp",
       "color": "#00e676"
+    },
+    {
+      "time": "2026-09-08 16:00:00",
+      "price": 4392.36,
+      "title": "Exit Long (Signal Exit)",
+      "text": "PnL: -30.99",
+      "shape": "arrowDown",
+      "color": "#ef5350"
     },
     {
       "time": "2025-06-30 04:00:00",
