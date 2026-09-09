@@ -531,8 +531,11 @@ bool GetOffset4H_BarData(int nBars, int offsetHours, double &outOpen[], double &
    long win = 4 * 3600;                    // 一根 4H 的秒數
    long off = (long)offsetHours * 3600;    // 網格偏移秒數
 
-   long lastUtc = (long)(rates1H[copied - 2].time - gmtOffset); // 最後一根「已完結」1H 的 UTC 時間
-   long winEnd = ((lastUtc + 3600 - off) / win) * win + off;    // 最新已完結 4H 窗口的結束時間
+   // ⚠️ 不可由「最後一根 1H K 棒」推算窗口邊界：假日縮短交易時，收盤前數小時可能完全沒有
+   //    1H K 棒 (例如 2026-09-07 美國勞動節 UTC 19:00~21:00 皆無)，此時最後一根 1H 停在 18:00，
+   //    會誤判 16:00~20:00 這根 4H 尚未完結而少算一根。改由「目前伺服器時間」所屬窗口回推。
+   long utcNow = (long)(TimeCurrent() - gmtOffset);             // 目前時間 (UTC)
+   long winEnd = ((utcNow - off) / win) * win + off;            // 目前所屬窗口的起點 = 最新已完結窗口的結束點
 
    int filled = 0; // 已填入根數
    for(int w = 0; w < nBars * 8 && filled < nBars; w++) // 由新到舊逐一窗口掃描 (上限避免無限迴圈)
@@ -927,7 +930,32 @@ void ProcessNew4HBar() // 新 4H K 線完結邏輯
 } // 函數結束
 
 //+------------------------------------------------------------------+
-//| 判斷當前 1H K 線是否為台北時間 +0h (00, 04, 08, 12, 16, 20) 新 4H 開盤 |
+//| 取得最後一根「已完結」4H K 棒的起始時間 (GetLastClosed4HBarTime)     |
+//| ⚠️ 舊版觸發條件為「目前正在形成的 1H K 棒開盤時間剛好落在 4H 邊界」， |
+//|    但若該邊界所在的整個小時因假日縮短交易而休市 (該小時完全沒有 1H    |
+//|    K 棒產生)，iTime(PERIOD_H1, 0) 永遠不會回傳該時點，該次 4H 判斷    |
+//|    就被「完全跳過」——不是延遲，是從未執行。                          |
+//|    實測 615 天資料中，平日發生 12 次 (全部為 UTC 20:00 這個邊界，     |
+//|    對應美國假日提早收盤，平均約每 51 天一次)。                        |
+//|    改以「目前時間所屬窗口的前一個窗口」判定：不論中間休市幾小時、      |
+//|    跳過幾根，復盤後的第一個 tick 就會補上該次判斷。                   |
+//+------------------------------------------------------------------+
+datetime GetLastClosed4HBarTime(int offsetHours) // 回傳最後一根已完結 4H K 棒的起始時間 (UTC)
+{ // 函數開頭
+   int gmtOffset = (int)(TimeCurrent() - TimeGMT()); // 券商伺服器對 GMT 的動態偏移
+   long utcNow = (long)(TimeCurrent() - gmtOffset);  // 目前時間 (UTC)
+   long win = 4 * 3600;                              // 一根 4H 的秒數
+   long off = (long)offsetHours * 3600;              // 網格偏移秒數
+   long curWinStart = ((utcNow - off) / win) * win + off; // 目前所屬窗口的起點
+   return (datetime)(curWinStart - win);             // 前一個窗口 = 最後一根已完結的 4H K 棒
+} // 函數結束
+
+//+------------------------------------------------------------------+
+//| 【已棄用】判斷當前 1H K 線是否落在 4H 邊界 (IsNewUTC4HBar)           |
+//| ⚠️ 此函數已不再被呼叫，保留僅供對照。原本作為 OnTick 的觸發條件，     |
+//|    但若 4H 邊界所在的整個小時休市 (假日提早收盤)，該小時不會產生      |
+//|    1H K 棒，本函數永遠不會被以該時點呼叫，導致該次 4H 判斷完全跳過。 |
+//|    已改用 GetLastClosed4HBarTime() 以時間窗口判定，請勿再改回使用。   |
 //+------------------------------------------------------------------+
 bool IsNewUTC4HBar(datetime current1HTime) // 判斷是否為指定偏移之 4H 新 K 線
 { // 函數開頭
@@ -1085,15 +1113,25 @@ void OnTick() // 每次 Tick 觸發函數
       UpdateDailyFilters(); // 即時更新日線過濾狀態
    } // 條件結束
 
-   datetime triggerTime = (_Period == PERIOD_H1) ? iTime(_Symbol, PERIOD_H1, 0) : iTime(_Symbol, PERIOD_H4, 0); // 取得當前開盤時間 (與最終版同步)
-   if(triggerTime != g_LastBar4H) // 若跳新 K 線
+   if(_Period == PERIOD_H1) // H1 掛載模式：以「最後一根已完結之 4H 窗口」是否改變作為觸發依據
    { // 條件開頭
-      bool isTrigger = (_Period == PERIOD_H1) ? IsNewUTC4HBar(triggerTime) : true; // 依 UTC +0h 動態夏令時間點位觸發
-      if(isTrigger) // 滿足觸發條件
+      // 不再要求「目前 1H K 棒剛好落在 4H 邊界」，避免該小時休市時整次判斷被跳過
+      datetime lastClosed4H = GetLastClosed4HBarTime(InpBarOffsetHours); // 取得最後已完結 4H 棒的起始時間
+      if(lastClosed4H > 0 && lastClosed4H != g_LastBar4H) // 出現新的已完結 4H 棒
+      { // 條件開頭
+         g_LastBar4H = lastClosed4H; // 更新紀錄
+         ProcessNew4HBar();          // 執行 4H 交易邏輯
+         SavePersistentState();      // 保存狀態
+      } // 條件結束
+   } // 條件結束
+   else // 原 H4 圖表相容模式：維持以券商 H4 K 棒跳動觸發
+   { // 條件開頭
+      datetime triggerTime = iTime(_Symbol, PERIOD_H4, 0); // 取得當前 H4 開盤時間
+      if(triggerTime != g_LastBar4H) // 若跳新 K 線
       { // 條件開頭
          g_LastBar4H = triggerTime; // 更新 4H 時間紀錄
-         ProcessNew4HBar();            // 執行 4H 交易邏輯
-         SavePersistentState();        // 保存狀態
+         ProcessNew4HBar();         // 執行 4H 交易邏輯
+         SavePersistentState();     // 保存狀態
       } // 條件結束
    } // 條件結束
 } // 函數結束
